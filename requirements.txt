@@ -4,3 +4,4 @@ cached_property
 dataclasses
 pytest
 html2text
+pygments
