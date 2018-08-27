@@ -1,12 +1,10 @@
 import builtins
 import textwrap
+import typing
 from pathlib import Path
-from typing import Any, GenericMeta, Type
+from typing import Any, GenericMeta, Type, List, Union
 
 import dataclasses
-
-
-DEFAULT_NOT_SET = object()
 
 
 def join_lines(*lines):
@@ -28,7 +26,7 @@ def dataclass_field_is_required(field: dataclasses.Field):
 
 
 def type_to_sig_part(type_):
-    if isinstance(type_, GenericMeta):
+    if type_ is typing.Any or isinstance(type_, typing.GenericMeta):
         return str(type_)
     elif isinstance(type_, type):
         return type_.__name__
@@ -38,34 +36,65 @@ def type_to_sig_part(type_):
         raise ValueError(type_)
 
 
+class Literal:
+    def __init__(self, value: str, is_falsey=False):
+        self.value = value
+        self.is_falsey = is_falsey
+
+    def __str__(self):
+        return self.value
+
+    def __repr__(self):
+        return self.value
+
+    def __eq__(self, other):
+        return isinstance(other, Literal) and (self.__dict__ == other.__dict__)
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __bool__(self):
+        return not self.is_falsey
+
+
+class LiteralString(Literal):
+    def __repr__(self):
+        return f"{self.value!r}"
+
+
+class Constants:
+    # Used as a special default value of function arguments to distinguish
+    # arguments for which user has not supplied value.
+    VALUE_NOT_SET = Literal("Constants.VALUE_NOT_SET", is_falsey=True)
+
+    # Used as a special default value which tells that the parameter
+    # or attribute is required (as it has no proper default set).
+    DEFAULT_NOT_SET = Literal("Constants.DEFAULT_NOT_SET", is_falsey=True)
+
+
 @dataclasses.dataclass
 class Parameter:
     name: str
-    type_: Type
-    default: Any = DEFAULT_NOT_SET
+    type_: typing.Union[typing.Type, str] = typing.Any
+    required: bool = False
+    default: typing.Any = Constants.DEFAULT_NOT_SET
 
-    class literal:
-        """
-        When you need to pass a default value that should be printed as is, not quoted.
-        """
-        def __init__(self, value: str):
-            self.value = value
-
-        def __str__(self):
-            return self.value
-
-        def __repr__(self):
-            return self.value
-
-    NOT_SET = literal("Parameter.NOT_SET")
+    # Special parameter, initialised below
+    SELF = None  # type: Parameter
 
     def to_sig_part(self):
-        # if self.default is not DEFAULT_NOT_SET and self.default is not dataclasses.MISSING:
-        if self.default is not dataclasses.MISSING:
-            default = f"={self.default!r}"
-        else:
+        if self is Parameter.SELF:
+            return f"{self.name}"
+
+        if self.required or self.default in (dataclasses.MISSING, Constants.DEFAULT_NOT_SET):
             default = ""
+        else:
+            default = f"={self.default!r}"
+
         return f"{self.name}: {type_to_sig_part(self.type_)}{default}"
+
+
+Parameter.SELF = Parameter("self", type_=object)
 
 
 @dataclasses.dataclass
@@ -115,37 +144,37 @@ class CodeBlock:
     @classmethod
     def class_(
             cls,
-            name: str = Parameter.NOT_SET,
-            imports: list = Parameter.NOT_SET,
-            decorators: list = Parameter.NOT_SET,
-            doc: str = Parameter.NOT_SET,
-            _blocks: list = Parameter.NOT_SET,
-            indented: bool = Parameter.NOT_SET,
-            opening: str = Parameter.NOT_SET,
-            closing: str = Parameter.NOT_SET,
-            not_set_values: list = Parameter.NOT_SET,
-            bases: list = Parameter.NOT_SET,
+            name: str = Constants.VALUE_NOT_SET,
+            imports: list = Constants.VALUE_NOT_SET,
+            decorators: list = Constants.VALUE_NOT_SET,
+            doc: str = Constants.VALUE_NOT_SET,
+            _blocks: list = Constants.VALUE_NOT_SET,
+            indented: bool = Constants.VALUE_NOT_SET,
+            opening: str = Constants.VALUE_NOT_SET,
+            closing: str = Constants.VALUE_NOT_SET,
+            not_set_values: list = Constants.VALUE_NOT_SET,
+            bases: list = Constants.VALUE_NOT_SET,
     ) -> "ClassCodeBlock":
         params_for_dataclass = {}
-        if name != Parameter.NOT_SET:
+        if name != Constants.VALUE_NOT_SET:
             params_for_dataclass['name'] = name
-        if imports != Parameter.NOT_SET:
+        if imports != Constants.VALUE_NOT_SET:
             params_for_dataclass['imports'] = imports
-        if decorators != Parameter.NOT_SET:
+        if decorators != Constants.VALUE_NOT_SET:
             params_for_dataclass['decorators'] = decorators
-        if doc != Parameter.NOT_SET:
+        if doc != Constants.VALUE_NOT_SET:
             params_for_dataclass['doc'] = doc
-        if _blocks != Parameter.NOT_SET:
+        if _blocks != Constants.VALUE_NOT_SET:
             params_for_dataclass['_blocks'] = _blocks
-        if indented != Parameter.NOT_SET:
+        if indented != Constants.VALUE_NOT_SET:
             params_for_dataclass['indented'] = indented
-        if opening != Parameter.NOT_SET:
+        if opening != Constants.VALUE_NOT_SET:
             params_for_dataclass['opening'] = opening
-        if closing != Parameter.NOT_SET:
+        if closing != Constants.VALUE_NOT_SET:
             params_for_dataclass['closing'] = closing
-        if not_set_values != Parameter.NOT_SET:
+        if not_set_values != Constants.VALUE_NOT_SET:
             params_for_dataclass['not_set_values'] = not_set_values
-        if bases != Parameter.NOT_SET:
+        if bases != Constants.VALUE_NOT_SET:
             params_for_dataclass['bases'] = bases
         return ClassCodeBlock(**params_for_dataclass)
 
@@ -156,6 +185,18 @@ class CodeBlock:
     @classmethod
     def dict(cls, *args, **kwargs) -> "DictCodeBlock":
         return DictCodeBlock(*args, **kwargs)
+
+    @classmethod
+    def dict_from_locals(cls, name, params: List[Parameter], not_specified_literal=Constants.VALUE_NOT_SET):
+        """
+        Generate code for a dictionary of locals whose value is not the specified literal.
+        """
+        code = cls(f"{name} = {{}}")
+        for p in params:
+            code.add(f"if {p.name} is not {not_specified_literal}:").of(
+                f"{name}[{p.name!r}] = {p.name}"
+            )
+        return code
 
     @classmethod
     def dataclass(cls, *args, **kwargs) -> "DataclassCodeBlock":
@@ -296,7 +337,7 @@ class CodeBlock:
         """
         Returns True if the value is NOT one of the values that this CodeBlock is meant to interpret as not set.
         """
-        return value not in self.not_set_values and value is not DEFAULT_NOT_SET
+        return value not in self.not_set_values and value is not Constants.DEFAULT_NOT_SET
 
 
 @dataclasses.dataclass
@@ -321,12 +362,12 @@ class ClassCodeBlock(CodeBlock):
 @dataclasses.dataclass
 class DefCodeBlock(CodeBlock):
     params: list = dataclasses.field(default_factory=list)
-    return_type: Any = DEFAULT_NOT_SET
+    return_type: Any = Constants.DEFAULT_NOT_SET
     indented: bool = True
 
     @property
     def return_annotation(self):
-        if self.return_type is DEFAULT_NOT_SET:
+        if self.return_type is Constants.DEFAULT_NOT_SET:
             return ""
         else:
             return f" -> {type_to_sig_part(self.return_type)}"
@@ -362,14 +403,14 @@ class DictCodeBlock(CodeBlock):
     closing: str = "}"
 
     def get_opening(self):
-        if self.name:
+        if self.opening:
+            return self.opening
+        elif self.name:
             return f"{self.name} = {{"
         else:
             return "{"
 
     def get_blocks(self):
-        # TODO Allow items to be code blocks!
-
         if self.items:
             for key, value in self.items.items():
                 yield 1, f"{key!r}: {value!r},"
@@ -389,11 +430,12 @@ class DataclassCodeBlock(ClassCodeBlock):
 
 @dataclasses.dataclass
 class DataclassFieldCodeBlock(CodeBlock):
-    type_: Any = None
-    default: Any = dataclasses.field(default=DEFAULT_NOT_SET)
-    default_factory: Any = dataclasses.field(default=DEFAULT_NOT_SET)
-    init: bool = dataclasses.field(default=DEFAULT_NOT_SET)
-    repr: bool = dataclasses.field(default=DEFAULT_NOT_SET)
+    type_: typing.Any = typing.Any
+    default: typing.Any = dataclasses.field(default=Constants.DEFAULT_NOT_SET)
+    default_factory: typing.Any = dataclasses.field(default=Constants.DEFAULT_NOT_SET)
+    init: bool = dataclasses.field(default=Constants.DEFAULT_NOT_SET)
+    repr: bool = dataclasses.field(default=Constants.DEFAULT_NOT_SET)
+    metadata: dict = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
         self.add_to_imports("import dataclasses")
@@ -420,6 +462,7 @@ class DataclassFieldCodeBlock(CodeBlock):
             f"default_factory={self.default_factory_repr}," if self.is_set(self.default_factory) else None,
             f"init={self.init_repr}," if self.is_set(self.init) else None,
             f"repr={self.repr_repr}," if self.is_set(self.repr) else None,
+            CodeBlock.dict(opening="metadata={", closing="},", items=self.metadata) if self.metadata else None,
         )
 
     @property
@@ -428,7 +471,8 @@ class DataclassFieldCodeBlock(CodeBlock):
             self.is_set(self.default) or
             self.is_set(self.default_factory) or
             self.is_set(self.init) or
-            self.is_set(self.repr)
+            self.is_set(self.repr) or
+            self.metadata
         )
 
     @property
@@ -472,7 +516,7 @@ class ModuleCodeBlock(ImportScopeCodeBlock):
             f.write("\n")
 
 
-def generate_dataclass_factory_delegate(dc, name=None, not_specified_literal=Parameter.NOT_SET):
+def generate_dataclass_factory_delegate(dc, name=None, not_specified_literal=Constants.VALUE_NOT_SET):
     """
     Given a dataclass dc, generates code for a function that will take
     the fields of dc as optional keyword or positional arguments and forward
@@ -490,7 +534,7 @@ def generate_dataclass_factory_delegate(dc, name=None, not_specified_literal=Par
             # because we want to distinguish between user not setting any value and user supplying a default value.
             # If user does not set any value then we shouldn't be passing anything to the dataclass initialiser
             # about the particular parameter.
-            default=dataclasses.MISSING if is_required else Parameter.NOT_SET,
+            default=dataclasses.MISSING if is_required else Constants.VALUE_NOT_SET,
         )
         params.append(param)
 

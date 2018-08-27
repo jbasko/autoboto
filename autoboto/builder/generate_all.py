@@ -7,7 +7,7 @@ from botocore import xform_name
 from botocore.model import StructureShape
 from html2text import html2text
 
-from indentist import CodeBlock as C, DEFAULT_NOT_SET
+from indentist import CodeBlock as C, Parameter, Constants
 
 from .boto_helpers import ServiceModel, iter_sorted_members
 from .core import build_dir, generate_dataclass_v2
@@ -16,6 +16,7 @@ from .log import log
 
 def main():
     generate_service_package("s3")
+    generate_service_client("s3")
     generate_service_shapes("s3")
     generate_service_operations("s3")
 
@@ -50,15 +51,15 @@ def prepare_build_sub_dir(sub_dir: Path, delete_files: List[str]):
             log.info(f"Deleted {fp}")
 
 
-def generate_service_package(service_name, generated_package="autoboto"):
-    target_dir = build_dir / "services" / service_name
-    prepare_build_sub_dir(target_dir, delete_files=["__init__.py"])
-
+def generate_service_client(service_name, generated_package="autoboto"):
     client_module = C.module(
         name="client",
         imports=[
+            "import datetime",
+            "import typing",
             "import boto3",
-            "from autoboto.permanent.falsey import NOT_SET",
+            "from indentist import Constants",  # TODO temporary
+            "from . import shapes",
         ],
     )
 
@@ -72,20 +73,51 @@ def generate_service_package(service_name, generated_package="autoboto"):
     )
 
     for operation in get_service_model(service_name).iter_operations():
-        params = ["self"]
+
+        # Generate a method which takes keyword arguments with:
+        # 1) required arguments not having any defaults set
+        # 2) optional arguments having default value set to Constants.VALUE_NOT_SET
+
+        params = [Parameter.SELF]
         for member in iter_sorted_members(operation.input_shape):
-            params.append(f"{member.name}{'' if member.is_required else '=NOT_SET'}")
+            params.append(Parameter(
+                name=member.name,
+                type_=member.type_annotation,
+                default=Constants.DEFAULT_NOT_SET if member.is_required else Constants.VALUE_NOT_SET,
+                required=member.is_required,
+            ))
 
         documentation = html2text(operation.documentation) if operation.documentation else None
         client_class.add(
             C.def_(xform_name(operation.name), params=params, doc=documentation).of(
-                f"return self._service_client.{xform_name(operation.name)}()",
+                C.dict_from_locals(
+                    name="method_params",
+                    params=params[1:],  # exclude self
+                ),
+                f"response = self._service_client.{xform_name(operation.name)}(**method_params)",
+                (
+                    f"return shapes.{operation.output_shape.name}.from_dict(response)"
+                    if operation.output_shape else
+                    "return response"
+                )
             ),
             "",
         )
 
     client_module.add(client_class)
-    client_module.write_to(target_dir / "client.py")
+
+    target_dir = build_dir / "services" / service_name
+    prepare_build_sub_dir(target_dir, delete_files=["client.py"])
+
+    module_path = target_dir / "client.py"
+    client_module.write_to(module_path)
+
+    return module_path, f"{generated_package}.services.{service_name}.client"
+
+
+def generate_service_package(service_name, generated_package="autoboto"):
+    target_dir = build_dir / "services" / service_name
+    prepare_build_sub_dir(target_dir, delete_files=["__init__.py"])
 
     init_module = C.module(
         name="__init__",
@@ -105,9 +137,34 @@ def generate_service_shapes(service_name, generated_package="autoboto"):
         name="shapes",
         imports=[
             "import datetime",
+            "import sys",
             "import dataclasses",
             "from autoboto.permanent.falsey import NOT_SET",
         ],
+    )
+
+    shapes_module.add(
+        """\
+        @dataclasses.dataclass
+        class _Shape:
+            @classmethod
+            def from_dict(cls, payload) -> "_Shape":
+                payload = payload or {}
+                parsed = {}
+                for f in dataclasses.fields(cls):
+                    if f.name in payload:
+                        shape_type = f.metadata.get("shape_type", None)
+                        if shape_type and payload[f.name] is not None:
+                            item_cls_name = f.metadata.get("shape_item_cls_name", None)
+                            item_cls = getattr(sys.modules[__name__], item_cls_name)
+                            if shape_type is list:
+                                parsed[f.name] = [item_cls.from_dict(item) for item in payload[f.name]]
+                            else:
+                                parsed[f.name] = item_cls.from_dict(payload[f.name])
+                        else:
+                            parsed[f.name] = payload[f.name]
+                return cls(**parsed)
+        """
     )
 
     for shape in get_service_model(service_name).iter_shapes():
@@ -117,8 +174,17 @@ def generate_service_shapes(service_name, generated_package="autoboto"):
 
         shape_dataclass = generate_dataclass_v2(
             name=shape.name,
+            bases=["_Shape"],
             documentation=shape.documentation,
             fields=iter_sorted_members(shape),
+        )
+
+        shape_dataclass.add(
+            f"""\
+            @classmethod
+            def from_dict(cls, payload) -> "{shape.name}":
+                return super().from_dict(payload)
+            """
         )
 
         shapes_module.add(shape_dataclass)
@@ -160,7 +226,7 @@ def generate_service_operations(service_name, generated_package="autoboto"):
     )
 
     for operation in get_service_model(service_name).iter_operations():
-        return_type_for_execute = DEFAULT_NOT_SET
+        return_type_for_execute = Constants.DEFAULT_NOT_SET
         if operation.output_shape:
             return_type_for_execute = f"shapes.{operation.output_shape.name}"
 

@@ -2,32 +2,28 @@
 autoboto
 ########
 
-What is awesome:
+*A proof of concept, only tried with s3 service.*
 
-* boto3
-* Amazon Web Services design and metadata
+**autoboto** generates code to make **boto3** easy to use:
 
-What is not awesome:
-
-* Working with classes about which you don't know
-  what methods they have and what these methods return.
-
-And when you know that they return ``dict``'s, do you
-really want to work with them?
-
-We don't. We like objects with a clear set of attributes
-which our favourite IDE (PyCharm) auto-suggests us.
-
-**autoboto** generates code around **boto3** to achieve
-this.
-
+* auto-complete works in PyCharm
+* service methods return dataclass instances with all attributes known to your IDE
 
 .. code-block:: python
 
-    from build.services.s3 import operations as ops
+    import boto3
 
-    for bucket in ops.ListBuckets().execute().Buckets:
-        print(f"Contents of {bucket}:")
-        for obj in ops.ListObjectsV2(Bucket=bucket.Name).execute().Contents:
-            print(f" - {obj.Key}: {obj}")
+    from autoboto.services.s3 import Client
+
+    boto_s3_client = boto3.client("s3")
+
+    # Print up to one key per bucket
+    s3 = Client()
+    for bucket in s3.list_buckets().Buckets:
+        print(bucket.Name)
+        for obj in s3.list_objects_v2(Bucket=bucket.Name).Contents:
+            print(f" - {obj.Key}")
             break
+
+
+**autoboto** only works on Python 3.6+ because we like *f-strings*.

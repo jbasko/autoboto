@@ -23,6 +23,7 @@ def generate_dataclass_v2(name, bases=None, documentation=None, fields=None, bef
                 default=field.default,
                 default_factory=field.default_factory,
                 doc=html2text(field.documentation) if field.documentation else None,
+                metadata=field.metadata,
                 not_set_values=[NOT_SPECIFIED],
             )
             for field in fields or ()

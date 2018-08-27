@@ -6,6 +6,7 @@ import dataclasses
 from botocore.loaders import Loader
 
 from autoboto.permanent.falsey import NOT_SPECIFIED, NOT_SET
+from indentist import LiteralString, Literal
 
 loader = Loader()
 
@@ -34,6 +35,16 @@ class Member:
 
     @property
     def metadata(self):
+        if isinstance(self.shape, botocore.model.ListShape):
+            return {
+                "shape_type": Literal("list"),
+                "shape_item_cls_name": LiteralString(self.shape.member.name),
+            }
+        elif isinstance(self.shape, botocore.model.StructureShape):
+            return {
+                "shape_type": Literal("dict"),
+                "shape_item_cls_name": LiteralString(self.shape.name),
+            }
         return NOT_SPECIFIED
 
     @property

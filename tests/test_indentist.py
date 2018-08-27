@@ -4,7 +4,21 @@ from typing import List
 
 import dataclasses
 
-from indentist import CodeBlock as C, generate_dataclass_factory_delegate, Parameter
+from indentist import CodeBlock as C, generate_dataclass_factory_delegate, Parameter, Constants, Literal, LiteralString
+
+
+def test_constants():
+    assert str(Constants.VALUE_NOT_SET) == "Constants.VALUE_NOT_SET"
+    assert not Constants.VALUE_NOT_SET
+
+    assert str(Constants.DEFAULT_NOT_SET) == "Constants.DEFAULT_NOT_SET"
+    assert not Constants.DEFAULT_NOT_SET
+
+
+def test_literal_string():
+    x = LiteralString("x")
+    assert repr(x) == "'x'"
+    assert str(x) == "x"
 
 
 def test_generic_block():
@@ -103,6 +117,16 @@ def test_generates_dataclass_field():
         "is_enabled: bool"
     )
 
+    f3 = C.dataclass_field("Something", metadata={"some_cls": Literal("C")})
+    # print(f3.to_code())
+    assert f3.to_code() == (
+        "Something: typing.Any = dataclasses.field(\n"
+        "    metadata={\n"
+        "        'some_cls': C,\n"
+        "    },\n"
+        ")"
+    )
+
 
 def test_generates_dataclass():
     c = C.dataclass("Operation").of(
@@ -193,7 +217,7 @@ def test_generates_dataclass_factory():
     assert isinstance(factory_code, C)
     # print(factory_code.to_code())
 
-    factory = factory_code.exec(globals={"dataclasses": dataclasses, "X": X, "Parameter": Parameter})["create_x"]
+    factory = factory_code.exec(globals={"dataclasses": dataclasses, "X": X, "Constants": Constants})["create_x"]
     assert callable(factory)
 
     sig = inspect.signature(factory)
@@ -201,3 +225,40 @@ def test_generates_dataclass_factory():
     assert sig.parameters["is_enabled"].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
 
     assert isinstance(factory(), X)
+
+
+def test_generates_dict_from_specified_locals():
+    c = C.dict_from_locals("kwargs", params=[Parameter("name", str), Parameter("is_enabled", bool)])
+    assert c.to_code() == (
+        "kwargs = {}\n"
+        "if name is not Constants.VALUE_NOT_SET:\n"
+        "    kwargs['name'] = name\n"
+        "if is_enabled is not Constants.VALUE_NOT_SET:\n"
+        "    kwargs['is_enabled'] = is_enabled"
+    )
+
+
+def test_parameter():
+    assert Parameter.SELF.to_sig_part() == "self"
+    assert Parameter("id", int).to_sig_part() == "id: int"
+    assert Parameter("id", "int").to_sig_part() == "id: int"
+    assert Parameter("id", "int", default=Constants.DEFAULT_NOT_SET).to_sig_part() == "id: int"
+    assert Parameter("id", "int", default=dataclasses.MISSING).to_sig_part() == "id: int"
+    assert Parameter("id", "int", default=5).to_sig_part() == "id: int=5"
+    assert Parameter("id", "int", default="5").to_sig_part() == "id: int='5'"
+    assert Parameter("id").to_sig_part() == "id: typing.Any"
+
+    # required overrides presence of default value
+    assert Parameter("id", int, required=True, default=5).to_sig_part() == "id: int"
+
+
+def test_def_respects_parameter_requiredness():
+    func = C.def_("get_by_id", params=[
+        Parameter.SELF,
+        Parameter("id", int, required=True, default=5),
+        Parameter("no_cache", bool, default=False),
+    ])
+    assert func.to_code() == (
+        "def get_by_id(self, id: int, no_cache: bool=False):\n"
+        "    pass"
+    )
