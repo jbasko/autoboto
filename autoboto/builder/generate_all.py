@@ -1,11 +1,13 @@
 import os
+import typing
 from pathlib import Path
 from typing import List
 
 from botocore import xform_name
 from botocore.model import StructureShape
+from html2text import html2text
 
-from indentist import CodeBlock as C
+from indentist import CodeBlock as C, DEFAULT_NOT_SET
 
 from .boto_helpers import ServiceModel, iter_sorted_members
 from .core import build_dir, generate_dataclass_v2
@@ -66,6 +68,7 @@ def generate_service_package(service_name, generated_package="autoboto"):
         C.def_("__init__", params=["self", "*args", "**kwargs"]).of(
             f"self._service_client = boto3.client({service_name!r}, *args, **kwargs)",
         ),
+        "",
     )
 
     for operation in get_service_model(service_name).iter_operations():
@@ -73,11 +76,12 @@ def generate_service_package(service_name, generated_package="autoboto"):
         for member in iter_sorted_members(operation.input_shape):
             params.append(f"{member.name}{'' if member.is_required else '=NOT_SET'}")
 
+        documentation = html2text(operation.documentation) if operation.documentation else None
         client_class.add(
-            C.def_(xform_name(operation.name), params=params, doc=operation.documentation).of(
+            C.def_(xform_name(operation.name), params=params, doc=documentation).of(
                 f"return self._service_client.{xform_name(operation.name)}()",
             ),
-            indentation=1,
+            "",
         )
 
     client_module.add(client_class)
@@ -146,7 +150,7 @@ def generate_service_operations(service_name, generated_package="autoboto"):
         C.dataclass("Operation").of(
             "_service_method_name = None",
             "",
-            C.def_("execute", params=["self", "client=None"]).of(
+            C.def_("execute", params=["self", "client=None"], return_type=typing.Dict).of(
                 "params = {k: v for k, v in dataclasses.asdict(self).items() if v != NOT_SET}",
                 "return getattr(client, self._service_method_name)(**params)",
             ),
@@ -156,6 +160,10 @@ def generate_service_operations(service_name, generated_package="autoboto"):
     )
 
     for operation in get_service_model(service_name).iter_operations():
+        return_type_for_execute = DEFAULT_NOT_SET
+        if operation.output_shape:
+            return_type_for_execute = f"shapes.{operation.output_shape.name}"
+
         operation_dataclass = generate_dataclass_v2(
             name=operation.name,
             documentation=operation.documentation,
@@ -168,7 +176,7 @@ def generate_service_operations(service_name, generated_package="autoboto"):
             fields=iter_sorted_members(operation.input_shape),
             after_fields=[
                 "",
-                C.def_("execute", params=["self", "client=None"]).of(
+                C.def_(name="execute", params=["self", "client=None"], return_type=return_type_for_execute).of(
                     "response = super().execute(client=client)",
                     (
                         f"return helpers.transform_response(response, shapes.{operation.output_shape.name}, shapes)"

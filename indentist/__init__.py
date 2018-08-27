@@ -1,7 +1,7 @@
 import builtins
 import textwrap
 from pathlib import Path
-from typing import Any, GenericMeta
+from typing import Any, GenericMeta, Type
 
 import dataclasses
 
@@ -21,6 +21,51 @@ def join_lines(*lines):
 
     """
     return "\n".join(line for line in lines if line is not None)
+
+
+def dataclass_field_is_required(field: dataclasses.Field):
+    return field.default is dataclasses.MISSING and field.default_factory is dataclasses.MISSING
+
+
+def type_to_sig_part(type_):
+    if isinstance(type_, GenericMeta):
+        return str(type_)
+    elif isinstance(type_, type):
+        return type_.__name__
+    elif isinstance(type_, str):
+        return type_
+    else:
+        raise ValueError(type_)
+
+
+@dataclasses.dataclass
+class Parameter:
+    name: str
+    type_: Type
+    default: Any = DEFAULT_NOT_SET
+
+    class literal:
+        """
+        When you need to pass a default value that should be printed as is, not quoted.
+        """
+        def __init__(self, value: str):
+            self.value = value
+
+        def __str__(self):
+            return self.value
+
+        def __repr__(self):
+            return self.value
+
+    NOT_SET = literal("Parameter.NOT_SET")
+
+    def to_sig_part(self):
+        # if self.default is not DEFAULT_NOT_SET and self.default is not dataclasses.MISSING:
+        if self.default is not dataclasses.MISSING:
+            default = f"={self.default!r}"
+        else:
+            default = ""
+        return f"{self.name}: {type_to_sig_part(self.type_)}{default}"
 
 
 @dataclasses.dataclass
@@ -48,19 +93,61 @@ class CodeBlock:
         return ModuleCodeBlock(name, **kwargs)
 
     @classmethod
-    def block(cls, *blocks, **kwargs) -> "CodeBlock":
+    def block(cls, name=None, *blocks, **kwargs) -> "CodeBlock":
         """
         Create a new code block with the specified sub-blocks.
-        To indent the code, set indented=True.
+
+        Examples:
+
+            block("for x in range(42):").of(
+                "y = x * 2",
+                "print(x)",
+            )
+
+            block("[", closing="]").of(*items)
+
         """
-        code = CodeBlock(**kwargs)
+        code = CodeBlock(name=name, **kwargs)
         for block in blocks:
             code._blocks.append((0, block))
         return code
 
     @classmethod
-    def class_(cls, *args, **kwargs) -> "ClassCodeBlock":
-        return ClassCodeBlock(*args, **kwargs)
+    def class_(
+            cls,
+            name: str = Parameter.NOT_SET,
+            imports: list = Parameter.NOT_SET,
+            decorators: list = Parameter.NOT_SET,
+            doc: str = Parameter.NOT_SET,
+            _blocks: list = Parameter.NOT_SET,
+            indented: bool = Parameter.NOT_SET,
+            opening: str = Parameter.NOT_SET,
+            closing: str = Parameter.NOT_SET,
+            not_set_values: list = Parameter.NOT_SET,
+            bases: list = Parameter.NOT_SET,
+    ) -> "ClassCodeBlock":
+        params_for_dataclass = {}
+        if name != Parameter.NOT_SET:
+            params_for_dataclass['name'] = name
+        if imports != Parameter.NOT_SET:
+            params_for_dataclass['imports'] = imports
+        if decorators != Parameter.NOT_SET:
+            params_for_dataclass['decorators'] = decorators
+        if doc != Parameter.NOT_SET:
+            params_for_dataclass['doc'] = doc
+        if _blocks != Parameter.NOT_SET:
+            params_for_dataclass['_blocks'] = _blocks
+        if indented != Parameter.NOT_SET:
+            params_for_dataclass['indented'] = indented
+        if opening != Parameter.NOT_SET:
+            params_for_dataclass['opening'] = opening
+        if closing != Parameter.NOT_SET:
+            params_for_dataclass['closing'] = closing
+        if not_set_values != Parameter.NOT_SET:
+            params_for_dataclass['not_set_values'] = not_set_values
+        if bases != Parameter.NOT_SET:
+            params_for_dataclass['bases'] = bases
+        return ClassCodeBlock(**params_for_dataclass)
 
     @classmethod
     def def_(cls, *args, **kwargs) -> "DefCodeBlock":
@@ -91,13 +178,19 @@ class CodeBlock:
                 self._blocks.append((1, block))
         return self
 
-    def add(self, *blocks, indentation=0) -> "CodeBlock":
+    def add(self, *blocks, indentation="default") -> "CodeBlock":
         """
-        Add sub-blocks with the same indentation as the parent block (unless indentation is set to non-zero value).
+        Add sub-blocks. If indentation is "default", the sub-block indentation depends on
+        parent block's "indented" attribute -- if parent block is marked as indented,
+        sub-blocks will be indented.
+
         Nones are skipped.
 
         Returns the parent block itself, useful for chaining.
         """
+        if indentation == "default":
+            indentation = 1 if self.indented else 0
+
         for block in blocks:
             if block is not None:
                 self._blocks.append((indentation, block))
@@ -157,23 +250,28 @@ class CodeBlock:
 
         before_opening = ""
         if self.decorators:
-            before_opening = join_lines(*self.decorators) + "\n"
+            before_opening = join_lines(*self.decorators)
 
-        opening = before_opening + (self.get_opening() or "")
+        opening = self.get_opening() or ""
+        if before_opening and opening:
+            full_opening = before_opening + "\n" + opening
+        else:
+            full_opening = before_opening + opening
+
         lines = list(self.to_lines(context=context))
         closing = self.closing
 
         if not lines:
             if closing:
-                return opening + closing
+                return full_opening + closing
             elif self.indented:
-                return join_lines(opening, "    pass")
+                return join_lines(full_opening, "    pass")
             else:
-                return opening
+                return full_opening
         else:
             # newlines won't be generated for Nones
             return join_lines(
-                opening or None,
+                full_opening or None,
                 *lines,
                 closing or None,
             )
@@ -223,14 +321,37 @@ class ClassCodeBlock(CodeBlock):
 @dataclasses.dataclass
 class DefCodeBlock(CodeBlock):
     params: list = dataclasses.field(default_factory=list)
+    return_type: Any = DEFAULT_NOT_SET
     indented: bool = True
 
+    @property
+    def return_annotation(self):
+        if self.return_type is DEFAULT_NOT_SET:
+            return ""
+        else:
+            return f" -> {type_to_sig_part(self.return_type)}"
+
     def get_opening(self):
+        return None
+
+    def get_blocks(self):
         params = []
         for p in self.params:
-            params.append(p)
+            if isinstance(p, Parameter):
+                params.append(p.to_sig_part())
+            else:
+                params.append(p)
+
         params_str = ", ".join(params)
-        return f"def {self.name}({params_str}):"
+
+        if len(params_str) + len(self.return_annotation) < 40:
+            yield 0, f"def {self.name}({params_str}){self.return_annotation}:"
+        else:
+            yield 0, CodeBlock(f"def {self.name}(", closing=f"){self.return_annotation}:").of(
+                *(f"{p}," for p in params)
+            )
+
+        yield from super().get_blocks()
 
 
 @dataclasses.dataclass
@@ -280,14 +401,7 @@ class DataclassFieldCodeBlock(CodeBlock):
 
     @property
     def type_annotation(self):
-        if isinstance(self.type_, str):
-            return self.type_
-        elif isinstance(self.type_, GenericMeta):
-            return str(self.type_)
-        elif isinstance(self.type_, type):
-            return self.type_.__name__
-        else:
-            raise ValueError(self.type_)
+        return type_to_sig_part(self.type_)
 
     def get_opening(self):
         return None
@@ -344,7 +458,7 @@ class ImportScopeCodeBlock(CodeBlock):
     def to_code(self, context: Context=None):
         context = context or Context()
         without_imports = super().to_code(context=context)
-        return "\n".join(context.imports) + "\n\n" + without_imports
+        return "\n".join(context.imports) + "\n\n\n" + without_imports
 
 
 @dataclasses.dataclass
@@ -356,3 +470,57 @@ class ModuleCodeBlock(ImportScopeCodeBlock):
         with open(path, "w", encoding=encoding) as f:
             f.write(self.to_code().rstrip())
             f.write("\n")
+
+
+def generate_dataclass_factory_delegate(dc, name=None, not_specified_literal=Parameter.NOT_SET):
+    """
+    Given a dataclass dc, generates code for a function that will take
+    the fields of dc as optional keyword or positional arguments and forward
+    to another function only those arguments for which values are supplied.
+    """
+    name = name or f"create_{dc.__name__.lower()}"
+
+    params = []
+    for f in dataclasses.fields(dc):
+        is_required = dataclass_field_is_required(f)
+        param = Parameter(
+            name=f.name,
+            type_=f.type,
+            # We only want to require required fields. But for others we don't want to set them to defaults
+            # because we want to distinguish between user not setting any value and user supplying a default value.
+            # If user does not set any value then we shouldn't be passing anything to the dataclass initialiser
+            # about the particular parameter.
+            default=dataclasses.MISSING if is_required else Parameter.NOT_SET,
+        )
+        params.append(param)
+
+    func = CodeBlock.def_(
+        name=name,
+        params=params,
+        return_type=dc,
+    ).of(
+        "params_for_dataclass = {}"
+    )
+
+    for f in dataclasses.fields(dc):
+        func.add(CodeBlock.block(f"if {f.name} != {not_specified_literal}:").of(
+            f"params_for_dataclass[{f.name!r}] = {f.name}"
+        ))
+
+    func.add(f"return {dc.__name__}(**params_for_dataclass)")
+
+    return func
+
+
+def _generate_delegates_for_yourself():
+    """
+    Indentist uses itself (during development) to generate the factory methods above.
+    """
+    factory = generate_dataclass_factory_delegate(ClassCodeBlock)
+    factory.add_to_decorators("@classmethod")
+    factory.params.insert(0, "cls")
+    print(factory.to_code())
+
+
+if __name__ == "__main__":
+    _generate_delegates_for_yourself()

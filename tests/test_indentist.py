@@ -1,9 +1,10 @@
+import inspect
 import typing
 from typing import List
 
 import dataclasses
 
-from indentist import CodeBlock as C
+from indentist import CodeBlock as C, generate_dataclass_factory_delegate, Parameter
 
 
 def test_generic_block():
@@ -130,4 +131,73 @@ def test_generates_module():
             "return logging.getLogger(__name__)"
         )
     )
-    assert m.to_code().startswith("import dataclasses\nimport logging\n\n@dataclasses.dataclass")
+    assert m.to_code().startswith("import dataclasses\nimport logging\n\n\n@dataclasses.dataclass")
+
+
+def test_block_of():
+    c = C.block("if False:").of(
+        "yield None"
+    )
+    assert c.to_code() == "if False:\n    yield None"
+
+
+def test_generates_list():
+    assert C.block("[").name == "["
+    assert C.block("[", closing="]").of().to_code() == "[]"
+    assert C.block("[", closing="]").of("1,", "2,").to_code() == (
+        "[\n"
+        "    1,\n"
+        "    2,\n"
+        "]"
+    )
+
+
+def test_add_adds_indented_for_indented_block():
+    func = C.def_("do_something")
+    func.add("print(42)")
+    func.add("", "return False")
+    # print(func.to_code())
+    assert func.to_code() == (
+        "def do_something():\n"
+        "    print(42)\n"
+        "\n"
+        "    return False"
+    )
+
+
+def test_decorator_on_def():
+    func = C.def_("do_something", params=["x"]).of("print(x)")
+    func.add_to_decorators("@staticmethod")
+    func.add_to_decorators("@staticmethod")
+    assert func.decorators == ["@staticmethod"]
+    # print(func.to_code())
+    assert func.to_code() == "@staticmethod\ndef do_something(x):\n    print(x)"
+
+
+def test_return_type_on_def():
+    expected_code = (
+        "def random_int() -> int:\n"
+        "    return 42"
+    )
+    assert expected_code == C.def_("random_int", return_type=int).of("return 42").to_code()
+    assert expected_code == C.def_("random_int", return_type="int").of("return 42").to_code()
+
+
+def test_generates_dataclass_factory():
+    @dataclasses.dataclass
+    class X:
+        id: int = None
+        is_enabled: bool = False
+
+    factory_code = generate_dataclass_factory_delegate(X, name="create_x")
+    assert isinstance(factory_code, C)
+    # print(factory_code.to_code())
+
+    factory = factory_code.exec(globals={"dataclasses": dataclasses, "X": X, "Parameter": Parameter})["create_x"]
+    assert callable(factory)
+
+    sig = inspect.signature(factory)
+    assert sig.parameters["id"].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+    assert sig.parameters["is_enabled"].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+
+    assert isinstance(factory(), X)
