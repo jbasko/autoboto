@@ -1,5 +1,5 @@
 class _Falsey:
-    # TODO Looks like must use equality because not is NOT_SET doesn't work. Maybe due to messy imports?
+    # TODO Looks like must use equality because "not is NOT_SET" doesn't work. Maybe due to messy imports?
 
     def __init__(self, repr):
         self._not_set_repr = repr

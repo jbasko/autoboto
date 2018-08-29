@@ -3,16 +3,20 @@ import importlib
 import inspect
 
 import dataclasses
+import pytest
 
-from autoboto.builder.core import build_dir
-from autoboto.builder.generate_all import generate_service_shapes, generate_service_operations, \
-    generate_service_package, generate_service_client
+from autoboto.builder.code_generator import Autoboto
 from autoboto.permanent.falsey import NOT_SET
 from indentist import Constants
 
 
-def test_build_dir():
-    assert str(build_dir).endswith("/autoboto/build")
+@pytest.fixture(scope="session")
+def code():
+    return Autoboto(generated_package="build")
+
+
+def test_build_dir(code):
+    assert str(code.build_dir).endswith("/autoboto/build")
 
 
 def test_not_set_and_not_specified():
@@ -20,9 +24,9 @@ def test_not_set_and_not_specified():
     assert NOT_SET == NOT_SET
 
 
-def test_generates_s3_service_shapes():
-    generate_service_package("s3")
-    shapes_path, shapes_module_name = generate_service_shapes("s3", generated_package="build")
+def test_generates_s3_service_shapes(code):
+    code.generate_service_package("s3")
+    shapes_path, shapes_module_name = code.generate_service_shapes("s3")
 
     shapes = importlib.import_module(shapes_module_name)
 
@@ -50,10 +54,10 @@ def test_generates_s3_service_shapes():
     assert obj.Owner.DisplayName == "The Owner"
 
 
-def test_generates_s3_service_operations():
-    generate_service_package("s3")
+def test_generates_s3_service_operations(code):
+    code.generate_service_package("s3")
 
-    client_path, client_module_name = generate_service_client("s3", generated_package="build")
+    client_path, client_module_name = code.generate_service_client("s3")
     client = importlib.import_module(client_module_name)
 
     method = client.Client.list_objects_v2
@@ -65,7 +69,7 @@ def test_generates_s3_service_operations():
     delimiter_param = method_sig.parameters["Delimiter"]
     assert delimiter_param.default == Constants.VALUE_NOT_SET  # optional param
 
-    operations_path, operations_module_name = generate_service_operations("s3", generated_package="build")
+    operations_path, operations_module_name = code.generate_service_operations("s3")
     operations = importlib.import_module(operations_module_name)
     assert operations.dataclasses
     assert operations.CompleteMultipartUpload

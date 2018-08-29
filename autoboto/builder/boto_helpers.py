@@ -5,8 +5,8 @@ import botocore.model
 import dataclasses
 from botocore.loaders import Loader
 
-from autoboto.permanent.falsey import NOT_SPECIFIED, NOT_SET
-from indentist import LiteralString, Literal
+from autoboto.permanent.falsey import NOT_SET, NOT_SPECIFIED
+from indentist.constants import Literal, LiteralString
 
 loader = Loader()
 
@@ -110,4 +110,3 @@ class ServiceModel(botocore.model.ServiceModel):
     def iter_shapes(self) -> Generator[botocore.model.Shape, None, None]:
         for shape_name in self.shape_names:
             yield self.shape_for(shape_name)
-

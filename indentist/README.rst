@@ -2,7 +2,19 @@
 indentist
 #########
 
-Unlike a dentist, **indentist** is painless. It does not heal, but it generates and indents code.
+Unlike a dentist, **indentist** is a painless Python code generator.
+
+====
+TODO
+====
+
+* Add current indentation to context. Pass context through everything. So that formatters can use that info
+  to wrap docstrings which are safe to wrap.
+
+
+================
+Obsolete Example
+================
 
 
 .. code-block:: python
@@ -19,7 +31,7 @@ Unlike a dentist, **indentist** is painless. It does not heal, but it generates 
             bases=["object"],
             doc="Represents an operation",
         ).of(
-            code.def_("execute", params=["self"], doc="Executes the thing")
+            code.func("execute", params=["self"], doc="Executes the thing")
         )),
     )
 
@@ -43,5 +55,3 @@ The above generates:
             Executes the thing
             """
             pass
-
-

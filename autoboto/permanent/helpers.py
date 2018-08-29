@@ -9,7 +9,7 @@ def transform_response(response, operation_cls, shapes):
     it into an instance of the documented shape.
     """
     assert isinstance(response, dict), response
-    metadata = response.pop("ResponseMetadata", None)
+    response.pop("ResponseMetadata", None)
 
     fields = {f.name: f for f in dataclasses.fields(operation_cls)}
 
