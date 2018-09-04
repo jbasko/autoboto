@@ -2,6 +2,12 @@
 autoboto
 ########
 
+======
+Status
+======
+
+**Pre-Alpha**
+
 =============
 The Objective
 =============
