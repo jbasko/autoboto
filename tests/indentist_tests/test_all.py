@@ -5,7 +5,7 @@ import dataclasses
 
 from indentist.blocks import Constants, Parameter
 from indentist.constants import Literal, LiteralString
-from indentist.context2 import CodeGenerator
+from indentist.code_generator import CodeGenerator
 
 code = CodeGenerator()
 
@@ -27,19 +27,19 @@ def test_literal_string():
 def test_empty_def():
     d = code.func("empty")
     assert d.expects_body_or_pass
-    assert d.to_code() == "def empty():\n    pass"
+    assert d.to_code() == "\ndef empty():\n    pass"
 
 
 def test_empty_def_with_params_as_strings():
     d = code.func("do_nothing", params=["self", "x"])
     assert d.expects_body_or_pass
-    assert d.to_code() == "def do_nothing(self, x):\n    pass"
+    assert d.to_code() == "\ndef do_nothing(self, x):\n    pass"
 
 
 def test_non_empty_def_with_params_as_strings():
     d = code.func("do_something", params=["self", "x"]).of("print(x)")
     assert d.to_code() == (
-        "def do_something(self, x):\n"
+        "\ndef do_something(self, x):\n"
         "    print(x)"
     )
 
@@ -48,7 +48,7 @@ def test_def_with_doc_string():
     d = code.func("get_complicated", params=["self", "x"], doc="Gets complicated which is a complex number")
     # print(d.to_code())
     assert d.to_code() == (
-        'def get_complicated(self, x):\n'
+        '\ndef get_complicated(self, x):\n'
         '    """\n'
         '    Gets complicated which is a complex number\n'
         '    """\n'
@@ -120,14 +120,14 @@ def test_dictionary_and_list_as_kwargs():
 
 
 def test_generates_empty_class():
-    assert code.class_("Op").to_code() == "class Op:\n    pass"
+    assert code.class_("Op").to_code() == "\n\nclass Op:\n    pass"
 
 
 def test_generates_class_with_bases_and_doc_string():
     c = code.class_("Op", bases=[str, "object"], doc="Does nothing")
     # print(c.to_code())
     assert c.to_code() == (
-        'class Op(str, object):\n'
+        '\n\nclass Op(str, object):\n'
         '    """\n'
         '    Does nothing\n'
         '    """\n'
@@ -138,7 +138,7 @@ def test_generates_class_with_bases_and_doc_string():
 def test_decorator_on_class():
     c = code.class_("Op", decorators=["@dataclasses.dataclass"])
     assert c.to_code() == (
-        "@dataclasses.dataclass\n"
+        "\n\n@dataclasses.dataclass\n"
         "class Op:\n"
         "    pass"
     )
@@ -149,7 +149,7 @@ def test_generates_class():
     assert c.name == "Operation"
     assert c.expects_body_or_pass
 
-    assert c.to_code() == "class Operation:\n    pass"
+    assert c.to_code() == "\n\nclass Operation:\n    pass"
 
     d = code.class_("Operation", bases=[str, "object"], doc="Represents an operation").of(
         code.func("__init__", params=["self"], doc="Create this"),
@@ -158,10 +158,10 @@ def test_generates_class():
 
     # print(d.to_code())
     d_expected = (
-        'class Operation(str, object):\n'
+        '\n\nclass Operation(str, object):\n'
         '    """\n'
         '    Represents an operation\n'
-        '    """\n'
+        '    """\n\n'
         '    def __init__(self):\n'
         '        """\n'
         '        Create this\n'
@@ -182,8 +182,7 @@ def test_generates_dataclass_field():
     f2 = code.dataclass_field("is_enabled", type_=bool, doc="True if is enabled")
     # print(f2.to_code())
     assert f2.to_code() == (
-        "\n"
-        "# True if is enabled\n"
+        "\n\n# True if is enabled\n"
         "is_enabled: bool"
     )
 
@@ -206,7 +205,7 @@ def test_generates_dataclass():
 
     # print(c.to_code())
     assert c.to_code() == (
-        "@dataclasses.dataclass\n"
+        "\n\n@dataclasses.dataclass\n"
         "class Operation:\n"
         "    name: str\n"
         "    params: typing.List[dict] = dataclasses.field(\n"
@@ -225,7 +224,7 @@ def test_generates_module():
             "return logging.getLogger(__name__)"
         )
     )
-    assert m.to_code().startswith("import dataclasses\nimport logging\n\n\n@dataclasses.dataclass")
+    assert m.to_code().startswith("import dataclasses\nimport logging\n\n\n\n\n@dataclasses.dataclass")
 
 
 def test_generates_list():
@@ -256,12 +255,12 @@ def test_decorator_on_function():
     func.add_to_decorators("@staticmethod")
     assert func.decorators == ["@staticmethod"]
     # print(func.to_code())
-    assert func.to_code() == "@staticmethod\ndef do_something(x):\n    print(x)"
+    assert func.to_code() == "\n@staticmethod\ndef do_something(x):\n    print(x)"
 
 
 def test_return_type_on_function():
     expected_code = (
-        "def random_int() -> int:\n"
+        "\ndef random_int() -> int:\n"
         "    return 42"
     )
     assert expected_code == code.func("random_int", return_type=int).of("return 42").to_code()
@@ -300,15 +299,18 @@ def test_def_respects_parameter_requiredness():
         Parameter("no_cache", bool, default=False),
     ])
     assert func.to_code() == (
-        "def get_by_id(self, id: int, no_cache: bool=False):\n"
+        "\ndef get_by_id(self, id: int, no_cache: bool=False):\n"
         "    pass"
     )
 
 
-def test_html_string_block():
-    long_str = "This is a long paragraph that may need to be split depending on where it is used and how."
-    html = code.html_string(f"<p>{long_str}</p>")
-    assert html.to_code() == (
-        'This is a long paragraph that may need to be split depending on where it is\n'
-        'used and how.'
+def test_comment_block():
+    assert code.doc_block_comment("Do not change the value of this").to_code() == (
+        "\n# Do not change the value of this"
+    )
+    assert code.doc_block_comment(
+        "This is a long paragraph that may need to be split depending on where it is used and how."
+    ).to_code() == (
+        "\n# This is a long paragraph that may need to be split depending on where it is\n"
+        "# used and how."
     )

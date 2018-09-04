@@ -52,8 +52,8 @@ class AttrsMixin:
 
 class BlockBase(AttrsMixin):
     def __init__(self, **attrs):
-        from .context2 import CodeGenerator
-        self.code = attrs.pop("code")  # type: CodeGenerator
+        from .code_generator import CodeGenerator
+        self.code: CodeGenerator = attrs.pop("code")
         self._init_attrs(**attrs)
 
 
@@ -196,7 +196,7 @@ class CodeBlock(BlockBase):
             elif isinstance(block, CodeBlock):
                 if block_indentation:
                     counter.num_indented_blocks += 1
-                    if not isinstance(block, TripleQuotedStringBlock):
+                    if not isinstance(block, DocString):
                         counter.num_indented_non_doc_blocks += 1
                 yield textwrap.indent(block.to_code(context=context), prefix)
             else:
@@ -209,11 +209,11 @@ class CodeBlock(BlockBase):
     def process_triple_quoted_doc_string(self):
         if self.expects_body_or_pass and self.doc:
             if isinstance(self.doc, str):
-                yield 1, self.code.triple_quoted_string(self.doc)
-            elif isinstance(self.doc, TripleQuotedStringBlock):
+                yield 1, self.code.doc_string(self.doc)
+            elif isinstance(self.doc, DocString):
                 yield 1, self.doc
             elif isinstance(self.doc, CodeBlock):
-                yield 1, self.code.triple_quoted_string(self.doc)
+                yield 1, self.code.doc_string(self.doc)
             else:
                 raise TypeError(type(self.doc))
 
@@ -264,6 +264,13 @@ class CodeBlock(BlockBase):
     def exec(self, globals=None, locals=None):
         if locals is None:
             locals = {}
+
+        # TODO
+        # This is broken at the moment because the names declared in global scope of the code block
+        # won't be available because exec will execute the code as if the code
+        # was inside a class body.
+        # Need to extract globals from the code block and pass them as globals!
+
         builtins.exec(self.to_code(), globals, locals)
         return locals
 
@@ -292,6 +299,8 @@ class ClassCodeBlock(CodeBlock):
         super().__init__(**kwargs)
 
     def get_blocks(self):
+        yield 0, ""  # two empty lines before a class
+        yield 0, ""
         yield from self.process_decorators()
 
         bases = []
@@ -308,6 +317,11 @@ class ClassCodeBlock(CodeBlock):
 
         yield from self.process_triple_quoted_doc_string()
         yield from self._blocks
+
+    def func(self, name=None, **kwargs):
+        func = self.code.func(name=name, **kwargs)
+        self.add(func, indentation=1)
+        return func
 
 
 class FunctionCodeBlock(CodeBlock):
@@ -326,6 +340,7 @@ class FunctionCodeBlock(CodeBlock):
             return f" -> {type_to_sig_part(self.return_type)}"
 
     def get_blocks(self):
+        yield 0, ""
         yield from self.process_decorators()
 
         params = []
@@ -346,6 +361,11 @@ class FunctionCodeBlock(CodeBlock):
 
         yield from self.process_triple_quoted_doc_string()
         yield from self._blocks
+
+    def block(self, *blocks, **kwargs) -> CodeBlock:
+        block = self.code.block(*blocks, **kwargs)
+        self.add(block, indentation=1)
+        return block
 
 
 class ListCodeBlock(CodeBlock):
@@ -416,11 +436,17 @@ class DictCodeBlock(CodeBlock):
 
 
 class DataclassCodeBlock(ClassCodeBlock):
+    expects_body_or_pass = True
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.add_to_imports("import dataclasses")
         self.add_to_decorators("@dataclasses.dataclass")
+
+    def field(self, name, **kwargs) -> "DataclassFieldCodeBlock":
+        field = self.code.dataclass_field(name=name, **kwargs)
+        self.add(field, indentation=1)
+        return field
 
 
 class DataclassFieldCodeBlock(CodeBlock):
@@ -443,7 +469,7 @@ class DataclassFieldCodeBlock(CodeBlock):
     def get_blocks(self):
         if self.doc:
             yield 0, ""  # blank line before fields with doc string
-            yield 0, textwrap.indent("\n".join(textwrap.wrap(self.doc, width=80, break_long_words=False)), "# ")
+            yield 0, self.code.doc_block_comment(self.doc)
 
         if not self.is_custom:
             yield 0, f"{self.name}: {self.type_annotation}"
@@ -497,22 +523,64 @@ class ImportScopeCodeBlock(CodeBlock):
 
 
 class ModuleCodeBlock(ImportScopeCodeBlock):
-    def write_to(self, path: Path, encoding="utf-8"):
+    def class_(self, name=None, **kwargs) -> "ClassCodeBlock":
+        cls = self.code.class_(name=name, **kwargs)
+        self.add(cls)
+        return cls
+
+    def dataclass(self, name=None, **kwargs) -> "DataclassCodeBlock":
+        cls = self.code.dataclass(name=name, **kwargs)
+        self.add(cls)
+        return cls
+
+    def new_type(self, name=None, type_def=None, **kwargs) -> "NewTypeCodeBlock":
+        block = self.code.new_type(name=name, type_def=type_def, **kwargs)
+        self.add(block)
+        return block
+
+    def write_to(self, path: Path, encoding="utf-8", format=None):
         with open(path, "w", encoding=encoding) as f:
-            f.write(self.to_code().rstrip())
-            f.write("\n")
+            f.write(self.to_code())
+
+        if format:
+            from yapf.yapflib.yapf_api import FormatFile
+            FormatFile(str(path), in_place=True, style_config=format)
 
 
-class TripleQuotedStringBlock(CodeBlock):
+class DocString(CodeBlock):
     def get_blocks(self):
         if not self:
             return
         yield 0, '"""'
-        yield from self._blocks
+        for indentation, block in self._blocks:
+            assert isinstance(block, str)
+            if self.code.documention_input_is_html:
+                block = html2text(block, bodywidth=80).strip()
+            yield indentation, block
         yield 0, '"""'
 
 
-class HtmlStringCodeBlock(CodeBlock):
+class NewTypeCodeBlock(CodeBlock):
+    def __init__(self, **kwargs):
+        self.type_def = None
+        super().__init__(**kwargs)
+        self.add_to_imports("import typing")
+
     def get_blocks(self):
+        yield 0, ""
+        yield 0, ""
+        if self.doc:
+            yield 0, self.code.doc_block_comment(self.doc)
+        yield 0, f"{self.name} = typing.NewType(\"{self.name}\", {self.type_def})"
+
+
+class DocBlockComment(CodeBlock):
+    def get_blocks(self):
+        yield 0, ""  # Precede any doc block comment with an empty line
         for indentation, block in self._blocks:
-            yield indentation, html2text(block).strip()
+            assert isinstance(block, str)
+            if self.code.documention_input_is_html:
+                block = html2text(block, bodywidth=75).strip()
+            else:
+                block = "\n".join(textwrap.wrap(block, width=75))
+            yield indentation, textwrap.indent(block, prefix="# ")

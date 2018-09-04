@@ -12,6 +12,8 @@ def type_to_sig_part(type_):
         return type_.__name__
     elif isinstance(type_, str):
         return type_
+    elif type_ is None:
+        return None
     else:
         raise ValueError(type_)
 

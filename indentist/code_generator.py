@@ -1,13 +1,10 @@
 import logging
-import os
-from pathlib import Path
 from typing import List
 
-from indentist.blocks import ListCodeBlock
 from .blocks import (
     ClassCodeBlock, CodeBlock, DataclassCodeBlock, DataclassFieldCodeBlock, FunctionCodeBlock, DictCodeBlock,
-    HtmlStringCodeBlock, ModuleCodeBlock, TripleQuotedStringBlock
-)
+    ModuleCodeBlock, DocString, NewTypeCodeBlock, ListCodeBlock,
+    DocBlockComment)
 from .constants import Constants
 from .parameters import Parameter
 
@@ -16,30 +13,11 @@ log = logging.getLogger(__name__)
 
 class CodeGenerator:
 
-    build_dir: Path = None
+    # Do not add any line-spacing in here. It's the responsibility of the blocks
+    # and perhaps some automated code formatter afterwards.
 
     def __init__(self):
-        pass
-
-    def prepare_build_sub_dir(self, sub_dir: Path, delete_files: List[str]):
-        assert self.build_dir in sub_dir.parents
-
-        if not self.build_dir.exists():
-            os.makedirs(self.build_dir)
-            log.info(f"Created build directory {self.build_dir}")
-
-        if not sub_dir.exists():
-            os.makedirs(sub_dir)
-            log.info(f"Created build sub-directory {sub_dir}")
-
-        (sub_dir / "__init__.py").touch()
-
-        for f in delete_files:
-            fp = (sub_dir / f).resolve()
-            assert sub_dir in fp.parents
-            if fp.exists():
-                fp.unlink()
-                log.info(f"Deleted {fp}")
+        self.documention_input_is_html = False
 
     def module(self, name, **kwargs) -> "ModuleCodeBlock":
         return ModuleCodeBlock(name=name, **kwargs, code=self)
@@ -96,10 +74,14 @@ class CodeGenerator:
         kwargs.setdefault("code", self)
         return DataclassFieldCodeBlock(name=name, **kwargs)
 
-    def html_string(self, *html_string_blocks, **kwargs):
+    def doc_string(self, *string_blocks, **kwargs):
         kwargs.setdefault("code", self)
-        return HtmlStringCodeBlock(**kwargs).add(*html_string_blocks)
+        return DocString(**kwargs).add(*string_blocks)
 
-    def triple_quoted_string(self, *string_blocks, **kwargs):
+    def doc_block_comment(self, *strings, **kwargs):
         kwargs.setdefault("code", self)
-        return TripleQuotedStringBlock(**kwargs).add(*string_blocks)
+        return DocBlockComment(**kwargs).add(*strings)
+
+    def new_type(self, name=None, type_def=None, **kwargs) -> "NewTypeCodeBlock":
+        kwargs.setdefault("code", self)
+        return NewTypeCodeBlock(name=name, type_def=type_def, **kwargs)

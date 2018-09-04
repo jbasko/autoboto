@@ -1,6 +1,6 @@
 from .constants import Constants
 from .context import Context
-from .context2 import CodeGenerator
+from .code_generator import CodeGenerator
 from .parameters import Parameter
 
 __all__ = [
