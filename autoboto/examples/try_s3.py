@@ -1,6 +1,6 @@
 import boto3
 
-from build.services.s3.client import Client
+from autoboto.services.s3.client import Client
 
 boto_s3_client = boto3.client("s3")
 

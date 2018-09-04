@@ -1,0 +1,8 @@
+include LICENSE
+
+prune build
+graft docs
+prune tests
+
+global-exclude *.py[co]
+global-exclude ".pytest_cache"

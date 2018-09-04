@@ -8,12 +8,15 @@ from typing import Dict
 
 from botocore import xform_name
 
-from indentist import CodeGenerator, Parameter
-from indentist.constants import Literal
+from autoboto.indentist import CodeGenerator, Literal, Parameter
 
-from .ab import AbServiceModel, AbOperationModel, AbShape
+from .ab import AbOperationModel, AbServiceModel, AbShape
 from .log import log
 from .styles import Style
+
+
+def identity_func(s):
+    return s
 
 
 class ServiceGenerator(CodeGenerator):
@@ -67,7 +70,7 @@ class ServiceGenerator(CodeGenerator):
                 if any(keyword.iskeyword(value) for value in shape.enum):
                     transform = str.upper
                 else:
-                    transform = lambda s: s
+                    transform = identity_func
 
                 for value in shape.enum:
                     # Some enum values have dashes.
@@ -198,8 +201,12 @@ class ServiceGenerator(CodeGenerator):
 
             if operation.input_shape:
                 operation_func.block("if _request is None:").of(
-                    self.dict_from_locals("_params", params=params, not_specified_literal="autoboto.ShapeBase._NOT_SET"),
-                    f"_request = shapes.{operation.input_shape.name}(**_params)"
+                    self.dict_from_locals(
+                        name="_params",
+                        params=params,
+                        not_specified_literal="autoboto.ShapeBase._NOT_SET"
+                    ),
+                    f"_request = shapes.{operation.input_shape.name}(**_params)",
                 )
                 operation_func.add(f"""\
                     response = self._boto_client.{operation_method_name}(**_request.to_boto_dict())

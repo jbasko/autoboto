@@ -2,9 +2,9 @@ import logging
 from typing import List
 
 from .blocks import (
-    ClassCodeBlock, CodeBlock, DataclassCodeBlock, DataclassFieldCodeBlock, FunctionCodeBlock, DictCodeBlock,
-    ModuleCodeBlock, DocString, NewTypeCodeBlock, ListCodeBlock,
-    DocBlockComment)
+    ClassCodeBlock, CodeBlock, DataclassCodeBlock, DataclassFieldCodeBlock, DictCodeBlock, DocBlockComment, DocString,
+    FunctionCodeBlock, ListCodeBlock, ModuleCodeBlock, NewTypeCodeBlock
+)
 from .constants import Constants
 from .parameters import Parameter
 

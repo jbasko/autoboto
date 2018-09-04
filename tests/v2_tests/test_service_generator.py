@@ -1,5 +1,5 @@
-from autoboto.v2.lib_generator import Botogen
-from autoboto.v2.service_generator import ServiceGenerator
+from autoboto.builder.lib_generator import Botogen
+from autoboto.builder.service_generator import ServiceGenerator
 
 
 def test_shapes_lookup(build_dir):

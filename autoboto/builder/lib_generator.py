@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 from typing import List
 
+from .ab import AbServiceModel
 from .log import log
 from .service_generator import ServiceGenerator
 from .styles import Style
@@ -59,7 +60,12 @@ class Botogen:
         log.debug(f"services = {self.services}")
         log.debug(f"style = {self.style}")
 
-        for service_name in self.services:
+        if "*" in self.services:
+            services = AbServiceModel.loader.list_available_services("service-2")
+        else:
+            services = self.services
+
+        for service_name in services:
             ServiceGenerator(
                 service_name=service_name,
                 botogen=self,

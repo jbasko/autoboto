@@ -1,6 +1,5 @@
 boto3
 botocore
-cached_property
 dataclasses
 html2text
 yapf

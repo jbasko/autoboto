@@ -1,7 +1,6 @@
 import pytest
 
-from indentist import CodeGenerator
-from indentist.blocks import BlockBase
+from autoboto.indentist import BlockBase, CodeGenerator
 
 
 @pytest.fixture()

@@ -1,5 +1,4 @@
-from build.services.cloudformation.client import Client
-
+from autoboto.services.cloudformation.client import Client
 
 cf = Client()
 

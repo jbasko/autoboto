@@ -3,9 +3,7 @@ from typing import List
 
 import dataclasses
 
-from indentist.blocks import Constants, Parameter
-from indentist.constants import Literal, LiteralString
-from indentist.code_generator import CodeGenerator
+from autoboto.indentist import CodeGenerator, Constants, Literal, LiteralString, Parameter
 
 code = CodeGenerator()
 

@@ -1,6 +1,8 @@
+__version__ = "0.0.3"
+
 from .base import ShapeBase, TypeInfo, deserialise_from_boto, serialize_to_boto
-from .v2.lib_generator import generate
-from .v2.styles import Style
+from .builder.lib_generator import generate
+from .builder.styles import Style
 
 __all__ = [
     "ShapeBase",

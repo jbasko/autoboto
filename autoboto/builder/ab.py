@@ -5,8 +5,8 @@ import collections
 import datetime
 from typing import Iterator
 
-import botocore.model
 import botocore.loaders
+import botocore.model
 
 
 class AbShapeMixin(botocore.model.Shape):
@@ -16,6 +16,8 @@ class AbShapeMixin(botocore.model.Shape):
         "boolean": bool,
         "integer": int,
         "long": int,
+        "double": float,
+        "float": float,
     }
 
     @property
