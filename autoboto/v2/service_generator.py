@@ -63,10 +63,16 @@ class ServiceGenerator(CodeGenerator):
                     bases=["Enum"],
                     doc=shape.documentation,
                 )
+
+                if any(keyword.iskeyword(value) for value in shape.enum):
+                    transform = str.upper
+                else:
+                    transform = lambda s: s
+
                 for value in shape.enum:
                     # Some enum values have dashes.
                     # s3.Event enum has values like "s3:ObjectCreated:*"
-                    safe_value = value.replace("*", "Wildcard")
+                    safe_value = transform(value).replace("*", "Wildcard")
                     safe_value = re.sub(r"[^a-zA-Z0-9_]", "_", safe_value)
                     enum_cls.add(
                         f"{safe_value} = \"{value}\"",
