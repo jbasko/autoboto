@@ -29,14 +29,14 @@ setup(
         "boto3",
         "dataclasses",
     ],
-    extras_require={
-        "botogen": [
-            "botocore"
-            "html2text",
-            "wr_profiles=3.0.0",
-            "yapf",
-        ],
-    },
+    # extras_require={
+    #     "botogen": [
+    #         "botocore==1.10.84",
+    #         "html2text==2018.1.9",
+    #         "wr_profiles=3.0.0",
+    #         "yapf==0.23.0",
+    #     ],
+    # },
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
