@@ -41,7 +41,7 @@ class BotogenConfig:
 
         if not isinstance(self.build_dir, Path):
             if self.build_dir is None:
-                self.build_dir = Path(__file__).parents[2] / "build"
+                self.build_dir = Path(__file__).parents[2] / "autoboto"
             else:
                 self.build_dir = Path(self.build_dir)
 

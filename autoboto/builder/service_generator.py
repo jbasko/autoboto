@@ -43,6 +43,21 @@ class ServiceGenerator(CodeGenerator):
     def run(self):
         log.info(f"generating service {self.service_name}")
 
+        service_package_init = self.module(
+            name="__init__",
+            imports=[
+                "from .client import Client",
+                "from . import shapes",
+            ],
+        )
+        service_package_init.add(f"""\
+            __all__ = [
+                \"Client\",
+                \"shapes\",
+            ]
+        """)
+        service_package_init.write_to(self.service_build_dir / "__init__.py")
+
         shapes_module = self.generate_shapes_module()
         shapes_path = self.service_build_dir / "shapes.py"
         shapes_module.write_to(shapes_path, format=self.config.yapf_style)
@@ -127,7 +142,7 @@ class ServiceGenerator(CodeGenerator):
                     elif member.shape.type_name == "structure":
                         field_defaults["default_factory"] = "dict"
                     else:
-                        field_defaults["default"] = "autoboto.ShapeBase._NOT_SET"
+                        field_defaults["default"] = "autoboto.ShapeBase.NOT_SET"
                     cls.field(
                         name=self.make_shape_attribute_name(member.name),
                         type_=self.type_annotation_for_shape(member.shape.name),
@@ -189,7 +204,7 @@ class ServiceGenerator(CodeGenerator):
                         name=self.make_shape_attribute_name(member.name),
                         type_=self.type_annotation_for_shape(member.shape.name, quoted=False, ns="shapes."),
                         required=member.is_required,
-                        default=Literal("autoboto.ShapeBase._NOT_SET"),
+                        default=Literal("autoboto.ShapeBase.NOT_SET"),
                         documentation=member.documentation,
                     ))
 
@@ -213,7 +228,7 @@ class ServiceGenerator(CodeGenerator):
                     self.dict_from_locals(
                         name="_params",
                         params=params,
-                        not_specified_literal="autoboto.ShapeBase._NOT_SET"
+                        not_specified_literal="autoboto.ShapeBase.NOT_SET"
                     ),
                     f"_request = shapes.{operation.input_shape.name}(**_params)",
                 )

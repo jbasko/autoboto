@@ -1,7 +1,7 @@
-from autoboto.services.cloudformation.client import Client
+from autoboto.services import cloudformation as cf
 
-cf = Client()
+cf_client = cf.Client()
 
-for stack in cf.list_stacks().stack_summaries:
+for stack in cf_client.list_stacks().stack_summaries:
     print(stack.stack_name)
-    print(cf.describe_stacks(stack_name=stack.stack_name))
+    print(cf_client.describe_stacks(stack_name=stack.stack_name))

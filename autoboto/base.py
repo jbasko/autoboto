@@ -108,7 +108,7 @@ def deserialise_from_boto(type_info: TypeInfo, payload: typing.Any) -> typing.An
                 continue
 
             attr_value = payload.pop(boto_name)
-            if attr_value is ShapeBase._NOT_SET:
+            if attr_value is ShapeBase.NOT_SET:
                 continue
             else:
                 attrs[attr_name] = deserialise_from_boto(attr_type, attr_value)
@@ -156,7 +156,7 @@ def serialize_to_boto(type_info: TypeInfo, payload: typing.Any) -> typing.Any:
 
         for attr_name, boto_name, attr_type in type_info.type._get_boto_mapping():
             attr_value = getattr(payload, attr_name)
-            if attr_value is ShapeBase._NOT_SET:
+            if attr_value is ShapeBase.NOT_SET:
                 continue
             else:
                 boto_dict[boto_name] = serialize_to_boto(attr_type, attr_value)
@@ -167,7 +167,21 @@ def serialize_to_boto(type_info: TypeInfo, payload: typing.Any) -> typing.Any:
 
 
 class ShapeBase:
-    _NOT_SET = object()
+    class _Falsey:
+        def __init__(self, name):
+            assert name
+            self._name = name
+
+        def __bool__(self):
+            return False
+
+        def __repr__(self):
+            return self._name
+
+        def __str__(self):
+            return self._name
+
+    NOT_SET = _Falsey("NOT_SET")
 
     @classmethod
     def _get_boto_mapping(cls) -> typing.List[typing.Tuple[str, str, TypeInfo]]:

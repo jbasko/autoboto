@@ -24,7 +24,19 @@ setup(
     description="boto3 with auto-complete and dataclasses not dicts",
     long_description=read("docs/README.rst"),
     packages=find_packages("."),
-    install_requires=["botocore", "boto3", "dataclasses", "html2text", "wr_profiles==3.0.0", "yapf"],
+
+    install_requires=[
+        "boto3",
+        "dataclasses",
+    ],
+    extras_require={
+        "botogen": [
+            "botocore"
+            "html2text",
+            "wr_profiles=3.0.0",
+            "yapf",
+        ],
+    },
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",

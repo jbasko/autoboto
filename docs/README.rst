@@ -18,13 +18,13 @@ and return objects of this or that type.
 
 .. code-block:: python
 
-    from autoboto.services.s3.client import Client
+    from autoboto.services import s3
 
-    s3 = Client()
+    s3_client = s3.Client()
 
-    for bucket in s3.list_buckets().buckets:
+    for bucket in s3_client.list_buckets().buckets:
         print(f"= {bucket.name} =")
-        for obj in s3.list_objects_v2(bucket_name=bucket.name).contents:
+        for obj in s3_client.list_objects_v2(bucket_name=bucket.name).contents:
             print(f"  - {obj.key}")
 
 ============

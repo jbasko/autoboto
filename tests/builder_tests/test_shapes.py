@@ -23,10 +23,10 @@ def s3_shapes(build_dir):
 
 def test_s3_list_objects_v2_request_shape(s3_shapes):
     request_shape = s3_shapes.ListObjectsV2Request
-    assert request_shape.bucket
-    assert request_shape.delimiter
-    assert request_shape.encoding_type
-    assert request_shape.request_payer
+    assert hasattr(request_shape, "bucket")
+    assert hasattr(request_shape, "delimiter")
+    assert hasattr(request_shape, "encoding_type")
+    assert hasattr(request_shape, "request_payer")
 
     assert dataclasses.is_dataclass(request_shape)
 
