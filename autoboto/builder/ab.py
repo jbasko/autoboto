@@ -29,6 +29,10 @@ class AbShapeMixin(botocore.model.Shape):
         return self.type_name == "string" and self.enum
 
     @property
+    def is_output_shape(self):
+        return self.name.endswith("Output") and self.name != "Output"
+
+    @property
     def member(self) -> "AbShape":
         return super().member
 
@@ -58,13 +62,23 @@ class AbStructureShape(AbShapeMixin, botocore.model.StructureShape):
     @property
     def sorted_members(self):
         """
-        Iterate over sorted members of shape in such an order
-        that required members are yielded first and optional members are yielded afterwards.
+        Iterate over sorted members of shape in the same order in which
+        the members are declared except yielding the required members before
+        any optional members.
         """
         members = collections.OrderedDict()
         required_names = self.metadata.get("required", ())
         for name, shape in self.members.items():
             members[name] = AbShapeMember(name=name, shape=shape, is_required=name in required_names)
+
+        if self.is_output_shape:
+            # ResponseMetadata is the first member for all output shapes.
+            yield AbShapeMember(
+                name="ResponseMetadata",
+                shape=self._shape_resolver.get_shape_by_name("ResponseMetadata"),
+                is_required=True,
+            )
+
         yield from sorted(members.values(), key=lambda m: not m.is_required)
 
 
@@ -112,12 +126,31 @@ class AbOperationModel(botocore.model.OperationModel):
 class AbServiceModel(botocore.model.ServiceModel):
     loader = botocore.loaders.Loader()
 
+    autoboto_shape_map_additions = {
+        "ResponseMetadataKey": {
+            "type": "string",
+        },
+        "ResponseMetadataValue": {
+            "type": "string",
+        },
+        "ResponseMetadata": {
+            "type": "map",
+            "key": {
+                "shape": "ResponseMetadataKey"
+            },
+            "value": {
+                "shape": "ResponseMetadataValue"
+            },
+        },
+    }
+
     def __init__(self, service_name):
         super().__init__(
             self.loader.load_service_model(service_name, "service-2"),
             service_name,
         )
         self._shape_resolver = AbShapeResolver(self._service_description.get('shapes', {}))
+        self._shape_resolver._shape_map.update(self.autoboto_shape_map_additions)
 
     def operation_model(self, operation_name):
         try:

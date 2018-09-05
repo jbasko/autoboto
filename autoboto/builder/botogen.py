@@ -21,6 +21,7 @@ def generate(
     default_style = Style(
         snake_case_variable_names=True,
         top_level_iterators=True,
+        yapf_style_config=None,
     )
     default_services = ["s3", "cloudformation"]
     default_build_dir = Path.cwd() / "build"

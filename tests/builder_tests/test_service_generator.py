@@ -1,4 +1,4 @@
-from autoboto.builder.lib_generator import Botogen
+from autoboto.builder.botogen import Botogen
 from autoboto.builder.service_generator import ServiceGenerator
 
 

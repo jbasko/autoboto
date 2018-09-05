@@ -114,14 +114,9 @@ def deserialise_from_boto(type_info: TypeInfo, payload: typing.Any) -> typing.An
                 attrs[attr_name] = deserialise_from_boto(attr_type, attr_value)
 
         if payload:
-            if "ResponseMetadata" in payload:
-                # TODO temporary hack
-                payload.pop("ResponseMetadata")
-
-            if payload:
-                raise ValueError(
-                    f"Unexpected fields found in payload for {type_info.name}: {', '.join(payload.keys())}"
-                )
+            raise ValueError(
+                f"Unexpected fields found in payload for {type_info.name}: {', '.join(payload.keys())}"
+            )
 
         return type_info(**attrs)
 
@@ -184,3 +179,12 @@ class ShapeBase:
     @classmethod
     def from_boto_dict(cls, d) -> "ShapeBase":
         return deserialise_from_boto(TypeInfo(cls), d)
+
+
+@dataclasses.dataclass
+class OutputShapeBase(ShapeBase):
+    """
+    Base class for all response shapes.
+    """
+
+    response_metadata: typing.Dict = dataclasses.field(default_factory=dict)

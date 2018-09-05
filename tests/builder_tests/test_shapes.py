@@ -49,6 +49,8 @@ def test_s3_list_objects_v2_request_shape(s3_shapes):
 
 def test_s3_list_objects_v2_output_shape(s3_shapes):
     assert dataclasses.is_dataclass(s3_shapes.ListObjectsV2Output)
+    assert issubclass(s3_shapes.ListObjectsV2Output, autoboto.ShapeBase)
+    assert issubclass(s3_shapes.ListObjectsV2Output, autoboto.OutputShapeBase)
 
     output_shape = s3_shapes.ListObjectsV2Output()
     assert dataclasses.is_dataclass(output_shape)
@@ -109,14 +111,33 @@ def test_deserialise_from_boto(s3_shapes):
             "DisplayName": "owner-display-name",
             "ID": "owner-id",
         },
+        "ResponseMetadata": {
+            "RequestId": "REQUESTID",
+            "HostId": "hostid",
+            "HTTPStatusCode": 200,
+            "HTTPHeaders": {
+                "x-amz-id-2": "hostid",
+                "x-amz-request-id": "REQUESTID",
+                "date": "Wed, 05 Sep 2018 19:09:33 GMT",
+                "content-type": "application/xml",
+                "transfer-encoding": "chunked",
+                "server": "AmazonS3",
+            },
+            "RetryAttempts": 0,
+        },
     }
-    list_buckets_output = deserialise_from_boto(s3_shapes.ListBucketsOutput, boto_list_buckets_output)
-    assert isinstance(list_buckets_output.owner, s3_shapes.Owner)
-    assert list_buckets_output.owner.display_name == "owner-display-name"
-    assert isinstance(list_buckets_output.buckets[0], s3_shapes.Bucket)
-    assert list_buckets_output.buckets[1].name == "second-bucket"
+    output = deserialise_from_boto(s3_shapes.ListBucketsOutput, boto_list_buckets_output)
 
-    assert list_buckets_output.to_boto_dict() == boto_list_buckets_output
+    assert isinstance(output.owner, s3_shapes.Owner)
+    assert output.owner.display_name == "owner-display-name"
+
+    assert isinstance(output.buckets[0], s3_shapes.Bucket)
+    assert output.buckets[1].name == "second-bucket"
+
+    assert output.response_metadata["RequestId"] == "REQUESTID"
+    assert output.response_metadata["HTTPHeaders"]["x-amz-request-id"] == "REQUESTID"
+
+    assert output.to_boto_dict() == boto_list_buckets_output
 
 
 def test_handle_enums(s3_shapes):

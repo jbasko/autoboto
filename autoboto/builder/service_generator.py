@@ -26,7 +26,7 @@ class ServiceGenerator(CodeGenerator):
 
         self.documention_input_is_html = True
 
-        from .lib_generator import Botogen
+        from .botogen import Botogen
         self.botogen: Botogen = botogen
 
         self.service_name: str = service_name
@@ -92,10 +92,15 @@ class ServiceGenerator(CodeGenerator):
                 continue
 
             elif shape.type_name == "structure":
+                if shape.is_output_shape:
+                    shape_bases = ["autoboto.OutputShapeBase"]
+                else:
+                    shape_bases = ["autoboto.ShapeBase"]
+
                 cls = module.dataclass(
                     name=shape.name,
                     doc=shape.documentation,
-                    bases=["autoboto.ShapeBase"],
+                    bases=shape_bases,
                 )
 
                 cls.func("_get_boto_mapping", decorators=["@classmethod"], params=["cls"]).of(
