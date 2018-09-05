@@ -31,8 +31,6 @@ and return objects of this or that type.
 Installation
 ============
 
-Not yet.
-
 .. code-block:: shell
 
     pip install autoboto
