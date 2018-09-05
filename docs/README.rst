@@ -43,3 +43,29 @@ Code Generation
 .. code-block:: shell
 
     python -m autoboto.builder --services s3,cloudformation,lambda
+
+=======
+Release
+=======
+
+.. code-block:: shell
+
+    bumpversion
+
+    pytest
+    flake8
+    isort
+
+    # Check everything generates well without formatting
+    python -m autoboto.builder --yapf-style "" --services "*"
+
+    # Generate with formatting
+    python -m autoboto.builder --yapf-style "facebook" --services "*"
+
+    python setup.py sdist bdist_wheel
+
+    python setup.py sdist upload -r pypitest
+
+    python setup.py sdist upload
+
+    # tag the release
