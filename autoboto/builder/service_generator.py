@@ -11,8 +11,8 @@ from botocore import xform_name
 from autoboto.indentist import CodeGenerator, Literal, Parameter
 
 from .ab import AbOperationModel, AbServiceModel, AbShape
+from .config import BotogenConfig
 from .log import log
-from .styles import Style
 
 
 def identity_func(s):
@@ -36,12 +36,16 @@ class ServiceGenerator(CodeGenerator):
 
         self.load_service_definition()
 
+    @property
+    def config(self) -> BotogenConfig:
+        return self.botogen.config
+
     def run(self):
         log.info(f"generating service {self.service_name}")
 
         shapes_module = self.generate_shapes_module()
         shapes_path = self.service_build_dir / "shapes.py"
-        shapes_module.write_to(shapes_path, format=self.botogen.style.yapf_style_config)
+        shapes_module.write_to(shapes_path, format=self.config.yapf_style)
 
         # TODO exec is broken for now
         # try:
@@ -52,7 +56,7 @@ class ServiceGenerator(CodeGenerator):
 
         client_module = self.generate_client_module()
         client_path = self.service_build_dir / "client.py"
-        client_module.write_to(client_path, format=self.botogen.style.yapf_style_config)
+        client_module.write_to(client_path, format=self.botogen.config.yapf_style)
 
     def generate_shapes_module(self):
         module = self.module("shapes", imports=["import datetime", "import typing", "import autoboto"])
@@ -266,13 +270,8 @@ class ServiceGenerator(CodeGenerator):
             (path / "__init__.py").touch()
         return path
 
-    @property
-    def style(self) -> Style:
-        return self.botogen.style
-
     def make_shape_attribute_name(self, name, containing_class=None):
-        if self.style.snake_case_variable_names:
-            name = xform_name(name)
+        name = xform_name(name)
         if keyword.iskeyword(name):
             name = name + "_"  # "and" becomes "and_"
         if containing_class is not None and hasattr(containing_class, name):

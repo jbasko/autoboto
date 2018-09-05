@@ -7,19 +7,16 @@ import pytest
 import autoboto
 from autoboto import TypeInfo, serialize_to_boto
 from autoboto.base import deserialise_from_boto
+from autoboto.builder.botogen import Botogen
 
 
 @pytest.fixture(scope="session")
 def s3_shapes(build_dir):
-    autoboto.generate(
+    Botogen(
         services=["s3"],
-        style=autoboto.Style(
-            snake_case_variable_names=True,
-            yapf_style_config=None,  # no formatting in tests to speed up
-        ),
         build_dir=build_dir,
-        target_package="build.test"
-    )
+        target_package="build.test",
+    ).run()
     from build.test.services.s3 import shapes
     return shapes
 

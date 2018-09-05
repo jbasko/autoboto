@@ -6,7 +6,7 @@ autoboto
 Status
 ======
 
-**Pre-Alpha** (Proof of Concept)
+**Alpha**
 
 =============
 The Objective
@@ -42,4 +42,4 @@ Code Generation
 
 .. code-block:: shell
 
-    python -m autoboto.builder
+    python -m autoboto.builder --services s3,cloudformation,lambda
