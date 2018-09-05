@@ -64,8 +64,8 @@ Release
 
     python setup.py sdist bdist_wheel
 
-    python setup.py sdist upload -r pypitest
+    twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 
-    python setup.py sdist upload
+    twine upload dist/*
 
     # tag the release
