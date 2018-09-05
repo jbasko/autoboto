@@ -12,7 +12,7 @@ Status
 The Objective
 =============
 
-    I want to be able to write code like below with my favourite IDE (PyCharm) telling me that the ``s3`` service
+    I want to be able to write boto3 code with my favourite IDE (PyCharm) telling me that the ``s3`` service
     has methods called ``list_buckets`` and ``list_objects_v2`` and they take certain arguments
     and return objects of this or that type which has these attributes of these types.
 
