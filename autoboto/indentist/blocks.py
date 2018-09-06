@@ -262,15 +262,15 @@ class CodeBlock(BlockBase):
         return join_lines(*lines) + self._suffix
 
     def exec(self, globals=None, locals=None):
+        """
+        Execute simple code blocks.
+
+        Do not attempt this on modules or other blocks where you have
+        imports as they won't work.
+        Instead write the code to a file and use runpy.run_path()
+        """
         if locals is None:
             locals = {}
-
-        # TODO
-        # This is broken at the moment because the names declared in global scope of the code block
-        # won't be available because exec will execute the code as if the code
-        # was inside a class body.
-        # Need to extract globals from the code block and pass them as globals!
-
         builtins.exec(self.to_code(), globals, locals)
         return locals
 

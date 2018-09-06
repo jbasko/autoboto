@@ -3,6 +3,7 @@ import datetime
 import keyword
 import os
 import re
+import runpy
 from pathlib import Path
 from typing import Dict
 
@@ -17,6 +18,11 @@ from .log import log
 
 def identity_func(s):
     return s
+
+
+def prepare_numeric_enum_value_name(value):
+    value = re.sub(r"[^a-zA-Z\d_]", "_", value)
+    return f"VALUE_OF_{value}"
 
 
 class ServiceGenerator(CodeGenerator):
@@ -62,16 +68,17 @@ class ServiceGenerator(CodeGenerator):
         shapes_path = self.service_build_dir / "shapes.py"
         shapes_module.write_to(shapes_path, format=self.config.yapf_style)
 
-        # TODO exec is broken for now
-        # try:
-        #     shapes_module.exec()
-        # except Exception:
-        #     log.error(f"generated shapes module ({shapes_path}) raised an exception on load:")
-        #     raise
+        try:
+            runpy.run_path(shapes_path)
+        except Exception:
+            log.error(f"generated shapes module ({shapes_path}) raised an exception on load:")
+            raise
 
         client_module = self.generate_client_module()
         client_path = self.service_build_dir / "client.py"
         client_module.write_to(client_path, format=self.botogen.config.yapf_style)
+
+        # TODO Can't runpy.run_path the client module because it uses a relative import: "from . import shapes"
 
     def generate_shapes_module(self):
         module = self.module("shapes", imports=["import datetime", "import typing", "import autoboto"])
@@ -88,6 +95,8 @@ class ServiceGenerator(CodeGenerator):
 
                 if any(keyword.iskeyword(value) for value in shape.enum):
                     transform = str.upper
+                elif any(re.match(r"^\d.+", value) for value in shape.enum):
+                    transform = prepare_numeric_enum_value_name
                 else:
                     transform = identity_func
 

@@ -7,6 +7,7 @@ from typing import Iterator
 
 import botocore.loaders
 import botocore.model
+from cached_property import cached_property
 
 
 class AbShapeMixin(botocore.model.Shape):
@@ -28,9 +29,21 @@ class AbShapeMixin(botocore.model.Shape):
     def is_enum(self):
         return self.type_name == "string" and self.enum
 
-    @property
+    @cached_property
     def is_output_shape(self):
-        return self.name.endswith("Output") and self.name != "Output"
+        for operation in self._shape_resolver._operations_map.values():
+            if "output" in operation:
+                if operation["output"]["shape"] == self.name:
+                    return True
+        return False
+
+    @cached_property
+    def is_input_shape(self):
+        for operation in self._shape_resolver._operations_map.values():
+            if "input" in operation:
+                if operation["input"]["shape"] == self.name:
+                    return True
+        return False
 
     @property
     def member(self) -> "AbShape":
@@ -103,6 +116,10 @@ class AbShapeResolver(botocore.model.ShapeResolver):
         'string': AbStringShape
     }
 
+    def __init__(self, shape_map, operations_map):
+        self._operations_map = operations_map
+        super().__init__(shape_map=shape_map)
+
     def get_shape_by_name(self, shape_name, member_traits=None):
         try:
             shape_model = self._shape_map[shape_name]
@@ -149,7 +166,10 @@ class AbServiceModel(botocore.model.ServiceModel):
             self.loader.load_service_model(service_name, "service-2"),
             service_name,
         )
-        self._shape_resolver = AbShapeResolver(self._service_description.get('shapes', {}))
+        self._shape_resolver = AbShapeResolver(
+            shape_map=self._service_description.get('shapes', {}),
+            operations_map=self._service_description.get('operations', {}),
+        )
         self._shape_resolver._shape_map.update(self.autoboto_shape_map_additions)
 
     def operation_model(self, operation_name):

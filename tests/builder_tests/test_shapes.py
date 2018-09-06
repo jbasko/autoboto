@@ -140,3 +140,9 @@ def test_deserialise_from_boto(s3_shapes):
 def test_handle_enums(s3_shapes):
     assert deserialise_from_boto(s3_shapes.ObjectStorageClass, "STANDARD") is s3_shapes.ObjectStorageClass.STANDARD
     assert serialize_to_boto(s3_shapes.ObjectStorageClass, s3_shapes.ObjectStorageClass.GLACIER) == "GLACIER"
+
+
+def test_output_shapes_are_detected_and_have_response_metadata_added(s3_shapes):
+    assert hasattr(s3_shapes.NotificationConfiguration(), "response_metadata")
+    assert hasattr(s3_shapes.ListBucketsOutput(), "response_metadata")
+    assert not hasattr(s3_shapes.GetBucketNotificationConfigurationRequest(), "response_metadata")

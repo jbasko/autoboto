@@ -1,10 +1,15 @@
 boto3
 botocore
+cached_property
 dataclasses
 html2text
 wr_profiles==3.0.0
 yapf
 
 
+bumpversion
+flake8
+isort
 pygments
 pytest
+wheel
