@@ -3,7 +3,7 @@ from typing import List
 
 import dataclasses
 
-from autoboto.indentist import CodeGenerator, Constants, Literal, LiteralString, Parameter
+from botogen.indentist import CodeGenerator, Constants, Literal, LiteralString, Parameter
 
 code = CodeGenerator()
 

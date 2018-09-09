@@ -6,3 +6,4 @@ prune tests
 
 global-exclude *.py[co]
 global-exclude ".pytest_cache"
+global-exclude ".DS_Store"

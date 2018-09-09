@@ -1,74 +1,8 @@
-import collections
-import datetime
-import enum
 import typing
 
 import dataclasses
 
-
-@dataclasses.dataclass
-class TypeInfo:
-    type: typing.Union[typing.Type, typing.GenericMeta]
-
-    def __post_init__(self):
-
-        # This is to handle NewType()
-        if hasattr(self.type, "__supertype__"):
-            self.type = self.type.__supertype__
-
-    @property
-    def is_primitive(self):
-        return self.type in (int, bool, float, str, datetime.datetime)
-
-    @property
-    def is_sequence(self):
-        return (
-            isinstance(self.type, type) and
-            issubclass(self.type, collections.Sequence) and
-            not issubclass(self.type, str)
-        )
-
-    @property
-    def is_dict(self):
-        return isinstance(self.type, type) and issubclass(self.type, dict)
-
-    @property
-    def is_dataclass(self):
-        return dataclasses.is_dataclass(self.type)
-
-    @property
-    def is_enum(self):
-        return isinstance(self.type, type) and issubclass(self.type, enum.Enum)
-
-    @property
-    def is_any(self):
-        return self.type is typing.Any
-
-    @property
-    def list_item_type(self):
-        if isinstance(self.type, typing.GenericMeta):
-            if self.type.__args__:
-                return self.type.__args__[0]
-        return typing.Any
-
-    @property
-    def dict_value_type(self):
-        if isinstance(self.type, typing.GenericMeta):
-            return self.type.__args__[1]
-        else:
-            return typing.Any
-
-    @property
-    def name(self):
-        return self.type.__name__
-
-    def __call__(self, *args, **kwargs):
-        if isinstance(self.type, typing.GenericMeta):
-            # Instances of type like typing.Tuple cannot be initialised.
-            # Relying on __extra__ to have "tuple" set as value in these cases.
-            return self.type.__extra__(*args, **kwargs)
-        else:
-            return self.type(*args, **kwargs)
+from .type_info import TypeInfo
 
 
 def deserialise_from_boto(type_info: TypeInfo, payload: typing.Any) -> typing.Any:
@@ -166,7 +100,22 @@ def serialize_to_boto(type_info: TypeInfo, payload: typing.Any) -> typing.Any:
     raise TypeError((type_info, payload))
 
 
+class _BotoFields:
+    def __get__(self, instance: "ShapeBase", owner: typing.Type["ShapeBase"]):
+        return [name for _, name, _ in owner._get_boto_mapping()]
+
+
+class _AutobotoFields:
+    def __get__(self, instance: "ShapeBase", owner: typing.Type["ShapeBase"]):
+        return [name for name, _, _ in owner._get_boto_mapping()]
+
+
 class ShapeBase:
+    """
+    Base class for all shapes.
+    A shape in boto is effectively a type with rich metadata.
+    """
+
     class _Falsey:
         def __init__(self, name):
             assert name
@@ -187,12 +136,21 @@ class ShapeBase:
     def _get_boto_mapping(cls) -> typing.List[typing.Tuple[str, str, TypeInfo]]:
         raise NotImplementedError()
 
-    def to_boto_dict(self):
+    def to_boto_dict(self) -> typing.Dict:
+        """
+        Returns a dictionary representing this shape with keys as expected by boto.
+        """
         return serialize_to_boto(TypeInfo(self), self)
 
     @classmethod
     def from_boto_dict(cls, d) -> "ShapeBase":
+        """
+        Given a dictionary with keys originating in boto, creates a shape of this class.
+        """
         return deserialise_from_boto(TypeInfo(cls), d)
+
+    boto_fields: typing.List[str] = _BotoFields()
+    autoboto_fields: typing.List[str] = _AutobotoFields()
 
 
 @dataclasses.dataclass

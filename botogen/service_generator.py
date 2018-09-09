@@ -3,13 +3,12 @@ import datetime
 import keyword
 import os
 import re
-import runpy
 from pathlib import Path
 from typing import Dict
 
 from botocore import xform_name
 
-from autoboto.indentist import CodeGenerator, Literal, Parameter
+from botogen.indentist import CodeGenerator, Literal, Parameter
 
 from .ab import AbOperationModel, AbServiceModel, AbShape
 from .config import BotogenConfig
@@ -68,20 +67,19 @@ class ServiceGenerator(CodeGenerator):
         shapes_path = self.service_build_dir / "shapes.py"
         shapes_module.write_to(shapes_path, format=self.config.yapf_style)
 
-        try:
-            runpy.run_path(shapes_path)
-        except Exception:
-            log.error(f"generated shapes module ({shapes_path}) raised an exception on load:")
-            raise
-
         client_module = self.generate_client_module()
         client_path = self.service_build_dir / "client.py"
         client_module.write_to(client_path, format=self.botogen.config.yapf_style)
 
-        # TODO Can't runpy.run_path the client module because it uses a relative import: "from . import shapes"
-
     def generate_shapes_module(self):
-        module = self.module("shapes", imports=["import datetime", "import typing", "import autoboto"])
+        module = self.module(
+            name="shapes",
+            imports=[
+                "import datetime",
+                "import typing",
+                f"from {self.botogen.target_autoboto_package_name} import ShapeBase, OutputShapeBase, TypeInfo",
+            ]
+        )
 
         for shape in self.shapes.values():
 
@@ -121,9 +119,9 @@ class ServiceGenerator(CodeGenerator):
 
             elif shape.type_name == "structure":
                 if shape.is_output_shape:
-                    shape_bases = ["autoboto.OutputShapeBase"]
+                    shape_bases = ["OutputShapeBase"]
                 else:
-                    shape_bases = ["autoboto.ShapeBase"]
+                    shape_bases = ["ShapeBase"]
 
                 cls = module.dataclass(
                     name=shape.name,
@@ -137,7 +135,7 @@ class ServiceGenerator(CodeGenerator):
                             f"("
                             f"\"{self.make_shape_attribute_name(member.name)}\", "
                             f"\"{member.name}\", "
-                            f"autoboto.TypeInfo({self.type_annotation_for_shape(member.shape.name, quoted=False)}),"
+                            f"TypeInfo({self.type_annotation_for_shape(member.shape.name, quoted=False)}),"
                             f"),"
                         )
                         for member in shape.sorted_members
@@ -151,7 +149,7 @@ class ServiceGenerator(CodeGenerator):
                     elif member.shape.type_name == "structure":
                         field_defaults["default_factory"] = "dict"
                     else:
-                        field_defaults["default"] = "autoboto.ShapeBase.NOT_SET"
+                        field_defaults["default"] = "ShapeBase.NOT_SET"
                     cls.field(
                         name=self.make_shape_attribute_name(member.name),
                         type_=self.type_annotation_for_shape(member.shape.name),
@@ -182,7 +180,7 @@ class ServiceGenerator(CodeGenerator):
                 "import datetime",
                 "import typing",
                 "import boto3",
-                "import autoboto",
+                f"from {self.botogen.target_autoboto_package_name} import ShapeBase, OutputShapeBase",
                 "from . import shapes",
             ],
         )
@@ -213,7 +211,7 @@ class ServiceGenerator(CodeGenerator):
                         name=self.make_shape_attribute_name(member.name),
                         type_=self.type_annotation_for_shape(member.shape.name, quoted=False, ns="shapes."),
                         required=member.is_required,
-                        default=Literal("autoboto.ShapeBase.NOT_SET"),
+                        default=Literal("ShapeBase.NOT_SET"),
                         documentation=member.documentation,
                     ))
 
@@ -237,7 +235,7 @@ class ServiceGenerator(CodeGenerator):
                     self.dict_from_locals(
                         name="_params",
                         params=params,
-                        not_specified_literal="autoboto.ShapeBase.NOT_SET"
+                        not_specified_literal="ShapeBase.NOT_SET"
                     ),
                     f"_request = shapes.{operation.input_shape.name}(**_params)",
                 )
@@ -288,10 +286,10 @@ class ServiceGenerator(CodeGenerator):
 
     @property
     def service_build_dir(self) -> Path:
-        path = self.botogen.services_build_dir / self.service_name
+        path = self.botogen.get_autoboto_path(f"services/{self.service_name}")
         if not path.exists():
             os.makedirs(path)
-            (path / "__init__.py").touch()
+        (path / "__init__.py").touch()
         return path
 
     def make_shape_attribute_name(self, name, containing_class=None):

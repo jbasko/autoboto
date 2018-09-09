@@ -24,25 +24,26 @@ setup(
     description="boto3 with auto-complete and dataclasses not dicts",
     long_description=read("docs/README.rst"),
     packages=find_packages("."),
-
+    python_requires=">=3.6.0",
     install_requires=[
         "boto3",
         "dataclasses",
     ],
-    # extras_require={
-    #     "botogen": [
-    #         "botocore==1.10.84",
-    #         "html2text==2018.1.9",
-    #         "wr_profiles=3.0.0",
-    #         "yapf==0.23.0",
-    #     ],
-    # },
+    extras_require={
+        "botogen": [
+            "botocore",
+            "html2text==2018.1.9",
+            "wr_profiles>=4.0.0, <5.0",
+            "yapf==0.23.0",
+        ],
+    },
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "License :: OSI Approved :: MIT License",
     ],
 )

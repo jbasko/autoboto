@@ -42,37 +42,83 @@ Installation
 Code Generation
 ===============
 
-When you install **autoboto** from pypi.org, it already contains generated code for all the services
+When you install ``autoboto`` from pypi.org, the package already contains the generated code for all the services
 that boto3 supports.
 
-This is only useful if you're changing the generated code and want to experiment with **autoboto**.
+If you want to re-generate the code, you can do so with the included ``botogen``.
 
 .. code-block:: shell
 
-    python -m autoboto.builder --services s3,cloudformation,lambda
+    python -m botogen --services s3,cloudformation,lambda
 
-=======
-Release
-=======
 
-.. code-block:: shell
+----------
+Components
+----------
 
-    bumpversion
+* ``autoboto`` - package where the generated code is put just before release. Do not add anything there manually.
+  All files in this directory may be overwritten.
+* ``botogen`` - the code responsible for autoboto generation
+* ``botogen.autoboto_template`` - contents of this package end up in the generated ``autoboto`` package.
 
-    pytest
-    flake8
-    isort
+  * ``.gitignore`` file under ``botogen/autoboto_template`` instructs git to ignore all files in the directory.
+    This is so that the generated code in ``autoboto`` package is never added to version control.
+    Therefore, during autoboto development, when you are adding new files to the ``botogen/autoboto_template``,
+    you need to add ``-f`` flag to force-add them to git.
 
-    # Check everything generates well without formatting
-    python -m autoboto.builder --yapf-style "" --services "*"
+* ``botogen.indentist`` - generic Python code generator
 
-    # Generate with formatting
-    python -m autoboto.builder --yapf-style "facebook" --services "*"
 
-    python setup.py sdist bdist_wheel
+-------------------
+Directory Structure
+-------------------
 
-    twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+.. code-block:: text
 
-    twine upload dist/*
+    build/                                  All build artifacts are put here
 
-    # tag the release
+        release/                            Release builds happen here
+
+            20180909_135602/                individual release build directory; Added to sys.path
+                autoboto/                   generated autoboto package; an augmented copy of botogen/autoboto_complete
+                    core/
+                    examples/
+                    services/
+                    __init__.py
+
+        test/                               Test builds happen here
+
+            20180909_135330/                individual test build directory; Added to sys.path
+                autoboto_20180909_135330/   generated autoboto package; an augmented copy of botogen/autoboto_complete
+                    core/
+                    examples/
+                    services/
+                    __init__.py
+
+        test-packages/                      Target directory for test builds -- where the generated
+                                            packages are put after successful completion of a build
+                                            and tests passing on the generated code.
+
+
+* ``build_dir`` -- a temporary directory in which all the build artifacts are generated. In the example above,
+  ``build/test/20180909_135330`` and ``build/release/20180909_135602`` are build directories.
+
+* ``target_package`` -- name of the generated target package; used in import statements in the generated code.
+  ``autoboto`` when generating the release; ``autoboto_{timestamp}`` in tests.
+
+* ``target_dir`` -- the directory in which to put the target package.
+  By default it's the current directory, but in tests it is ``build/test-packages``.
+
+
+-----
+Notes
+-----
+
+Do not use any imports from ``botogen.autoboto_template`` in tests because the objects that exist there
+are not the same that the test code will access.
+
+-------
+``tox``
+-------
+
+To run ``tox``, you need to first generate the autoboto package or it will fail.

@@ -1,9 +1,7 @@
-from autoboto.builder.botogen import Botogen
-from autoboto.builder.service_generator import ServiceGenerator
+from botogen import ServiceGenerator
 
 
-def test_shapes_lookup(build_dir):
-    botogen = Botogen(target_package="build.test", build_dir=build_dir)
+def test_shapes_lookup(botogen):
     s3 = ServiceGenerator(service_name="s3", botogen=botogen)
 
     assert s3.shapes["AllowedOrigin"].is_primitive

@@ -6,7 +6,7 @@ from .constants import Constants
 
 
 def type_to_sig_part(type_):
-    if type_ is typing.Any or isinstance(type_, typing.GenericMeta):
+    if type_ is typing.Any or hasattr(type_, '__args__'):
         return str(type_)
     elif isinstance(type_, type):
         return type_.__name__

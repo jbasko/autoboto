@@ -2,23 +2,11 @@ import datetime
 import typing
 
 import dataclasses
-import pytest
-
-import autoboto
-from autoboto import TypeInfo, serialize_to_boto
-from autoboto.base import deserialise_from_boto
-from autoboto.builder.botogen import Botogen
 
 
-@pytest.fixture(scope="session")
-def s3_shapes(build_dir):
-    Botogen(
-        services=["s3"],
-        build_dir=build_dir,
-        target_package="build.test",
-    ).run()
-    from build.test.services.s3 import shapes
-    return shapes
+def test_shapes_have_boto_fields(s3_shapes):
+    assert s3_shapes.ListBucketsOutput.boto_fields == ["ResponseMetadata", "Buckets", "Owner"]
+    assert s3_shapes.ListBucketsOutput.autoboto_fields == ["response_metadata", "buckets", "owner"]
 
 
 def test_s3_list_objects_v2_request_shape(s3_shapes):
@@ -35,8 +23,10 @@ def test_s3_list_objects_v2_request_shape(s3_shapes):
         delimiter=",",
         fetch_owner=True,
     )
-    assert request._get_boto_mapping()[0] == ("bucket", "Bucket", TypeInfo(str))
-    assert request._get_boto_mapping()[2] == ("encoding_type", "EncodingType", TypeInfo(s3_shapes.EncodingType))
+    assert request._get_boto_mapping()[0] == ("bucket", "Bucket", s3_shapes.TypeInfo(str))
+    assert request._get_boto_mapping()[2] == (
+        "encoding_type", "EncodingType", s3_shapes.TypeInfo(s3_shapes.EncodingType)
+    )
     assert request.to_boto_dict() == {
         "Bucket": "test-bucket",
         "Delimiter": ",",
@@ -44,10 +34,10 @@ def test_s3_list_objects_v2_request_shape(s3_shapes):
     }
 
 
-def test_s3_list_objects_v2_output_shape(s3_shapes):
+def test_s3_list_objects_v2_output_shape(s3_shapes, autoboto):
     assert dataclasses.is_dataclass(s3_shapes.ListObjectsV2Output)
-    assert issubclass(s3_shapes.ListObjectsV2Output, autoboto.ShapeBase)
-    assert issubclass(s3_shapes.ListObjectsV2Output, autoboto.OutputShapeBase)
+    assert issubclass(s3_shapes.ListObjectsV2Output, s3_shapes.ShapeBase)
+    assert issubclass(s3_shapes.ListObjectsV2Output, s3_shapes.OutputShapeBase)
 
     output_shape = s3_shapes.ListObjectsV2Output()
     assert dataclasses.is_dataclass(output_shape)
@@ -56,7 +46,7 @@ def test_s3_list_objects_v2_output_shape(s3_shapes):
     assert hasattr(output_shape, "is_truncated")
 
     types = typing.get_type_hints(s3_shapes.ListObjectsV2Output)
-    assert TypeInfo(types["is_truncated"]).type is bool
+    assert autoboto.TypeInfo(types["is_truncated"]).type is bool
 
 
 def test_s3_metadata_shape(s3_shapes):
@@ -66,7 +56,8 @@ def test_s3_metadata_shape(s3_shapes):
     assert typing.get_type_hints(s3_shapes.PutObjectRequest)["metadata"] is typing.Dict[str, str]
 
 
-def test_deserialise_from_boto(s3_shapes):
+def test_deserialise_from_boto(s3_shapes, autoboto):
+    deserialise_from_boto = autoboto.deserialise_from_boto
     assert deserialise_from_boto(typing.Any, [{1, 2, 3}]) == [{1, 2, 3}]
 
     assert deserialise_from_boto(typing.Any, None) is None
@@ -91,7 +82,8 @@ def test_deserialise_from_boto(s3_shapes):
         "DisplayName": "owner-display-name",
         "ID": "owner-id",
     }
-    assert deserialise_from_boto(s3_shapes.Owner, boto_owner) == s3_shapes.Owner("owner-display-name", "owner-id")
+    autoboto_owner = deserialise_from_boto(s3_shapes.Owner, boto_owner)
+    assert s3_shapes.Owner("owner-display-name", "owner-id") == autoboto_owner
 
     boto_list_buckets_output = {
         "Buckets": [
@@ -137,9 +129,10 @@ def test_deserialise_from_boto(s3_shapes):
     assert output.to_boto_dict() == boto_list_buckets_output
 
 
-def test_handle_enums(s3_shapes):
-    assert deserialise_from_boto(s3_shapes.ObjectStorageClass, "STANDARD") is s3_shapes.ObjectStorageClass.STANDARD
-    assert serialize_to_boto(s3_shapes.ObjectStorageClass, s3_shapes.ObjectStorageClass.GLACIER) == "GLACIER"
+def test_handle_enums(s3_shapes, autoboto):
+    standard = autoboto.deserialise_from_boto(s3_shapes.ObjectStorageClass, "STANDARD")
+    assert standard is s3_shapes.ObjectStorageClass.STANDARD
+    assert autoboto.serialize_to_boto(s3_shapes.ObjectStorageClass, s3_shapes.ObjectStorageClass.GLACIER) == "GLACIER"
 
 
 def test_output_shapes_are_detected_and_have_response_metadata_added(s3_shapes):
