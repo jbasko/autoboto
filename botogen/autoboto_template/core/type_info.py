@@ -58,7 +58,7 @@ class TypeInfo:
     def is_sequence(self):
         return (
             isinstance(self.type, type) and
-            issubclass(self.type, collections.Sequence) and
+            issubclass(self.type, collections.abc.Sequence) and
             not issubclass(self.type, str)
         ) or (
             issubtype(self.type, typing.List) or

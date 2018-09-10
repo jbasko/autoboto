@@ -53,17 +53,25 @@ class Botogen:
         services_dir.mkdir()
         (services_dir / "__init__.py").touch()
 
+        # Make sure the build directory is the first one in path
+        sys.path.insert(0, str(self.config.build_dir))
+
         for service_name in services:
             ServiceGenerator(
                 service_name=service_name,
                 botogen=self,
             ).run()
+            self._try_generated_service_import(service_name)
+
+        # Remove the previously added build directory from the path
+        sys.path.remove(str(self.config.build_dir))
 
         # Move the generated package to the target_dir
         assert self.config.target_dir.exists()
 
         if self.target_autoboto_package_dir.exists():
             shutil.rmtree(self.target_autoboto_package_dir)
+
         shutil.copytree(self.build_autoboto_package_dir, self.target_autoboto_package_dir)
         log.info(f"Generated package {self.config.target_package} at {self.target_autoboto_package_dir}")
 
@@ -115,3 +123,13 @@ class Botogen:
         Name of the autoboto package that should be used in the generated imports.
         """
         return self.config.target_package
+
+    def _try_generated_service_import(self, service_name):
+        service_package_name = f"{self.target_autoboto_package_name}.services.{service_name}"
+
+        log.debug(f"importing the generated {service_package_name}")
+        service = importlib.import_module(service_package_name)
+
+        assert service.shapes
+        assert service.Client
+        service.Client()
