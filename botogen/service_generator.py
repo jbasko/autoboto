@@ -157,6 +157,14 @@ class ServiceGenerator(CodeGenerator):
                         **field_defaults,
                     )
 
+                cls.func(
+                    name="paginate",
+                    params=["self"],
+                    return_type=f"typing.Generator[\"{shape.name}\", None, None]",
+                ).of(
+                    "yield from super().paginate()"
+                )
+
             elif shape.type_name == "blob":
                 module.add_to_imports("import botocore.response")
                 module.class_(
@@ -180,17 +188,18 @@ class ServiceGenerator(CodeGenerator):
                 "import datetime",
                 "import typing",
                 "import boto3",
-                f"from {self.botogen.target_autoboto_package_name} import ShapeBase, OutputShapeBase",
+                f"from {self.botogen.target_autoboto_package_name} import ClientBase, ShapeBase, OutputShapeBase",
                 "from . import shapes",
             ],
         )
 
-        client_cls = module.class_("Client")
+        client_cls = module.class_(
+            name="Client",
+            bases=["ClientBase"],
+        )
 
         client_cls.func("__init__", params=["self", "*args", "**kwargs"]).of(
-            f"""\
-                self._boto_client = boto3.client(\"{self.service_name}\", *args, **kwargs)
-            """
+            f"super().__init__(\"{self.service_name}\", *args, **kwargs)"
         )
 
         for operation in self.operations.values():
@@ -198,6 +207,7 @@ class ServiceGenerator(CodeGenerator):
 
             operation_method_name = xform_name(operation.name)
             operation_method_params = ["self"]
+            paginator_model = operation.get_paginator()
 
             if operation.input_shape:
                 operation_method_params.append(Parameter(
@@ -239,9 +249,19 @@ class ServiceGenerator(CodeGenerator):
                     ),
                     f"_request = shapes.{operation.input_shape.name}(**_params)",
                 )
-                operation_func.add(f"""\
-                    response = self._boto_client.{operation_method_name}(**_request.to_boto_dict())
-                """, indentation=1)
+                if operation.output_shape and paginator_model:
+                    operation_func.add(f"""\
+                        paginator = self.get_paginator("{operation_method_name}").paginate(**_request.to_boto_dict())
+                        page_generator = (page for page in paginator)
+                        first_page = next(page_generator)
+                        result = shapes.{operation.output_shape.name}.from_boto_dict(first_page)
+                        result._page_iterator = page_generator
+                        return result
+                    """, indentation=1)
+                else:
+                    operation_func.add(f"""\
+                        response = self._boto_client.{operation_method_name}(**_request.to_boto_dict())
+                    """, indentation=1)
             else:
                 operation_func.add(f"""\
                     response = self._boto_client.{operation_method_name}()

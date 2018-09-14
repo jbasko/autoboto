@@ -130,9 +130,22 @@ def test_deserialise_from_boto(s3_shapes, autoboto):
 
 
 def test_handle_enums(s3_shapes, autoboto):
+    # Enum name matches the value
     standard = autoboto.deserialise_from_boto(s3_shapes.ObjectStorageClass, "STANDARD")
     assert standard is s3_shapes.ObjectStorageClass.STANDARD
     assert autoboto.serialize_to_boto(s3_shapes.ObjectStorageClass, s3_shapes.ObjectStorageClass.GLACIER) == "GLACIER"
+
+    # Enum name doesn't match the value
+    eu_west_1 = autoboto.deserialise_from_boto(s3_shapes.BucketLocationConstraint, "eu-west-1")
+    assert eu_west_1 is s3_shapes.BucketLocationConstraint.eu_west_1
+    assert autoboto.serialize_to_boto(
+        s3_shapes.BucketLocationConstraint, s3_shapes.BucketLocationConstraint.eu_west_1
+    ) == "eu-west-1"
+
+    # Enum value unknown, but we still accept it.
+    us_east_2 = autoboto.deserialise_from_boto(s3_shapes.BucketLocationConstraint, "us-east-2")
+    assert us_east_2 is "us-east-2"
+    assert autoboto.serialize_to_boto(s3_shapes.BucketLocationConstraint, "us-east-2") == "us-east-2"
 
 
 def test_output_shapes_are_detected_and_have_response_metadata_added(s3_shapes):

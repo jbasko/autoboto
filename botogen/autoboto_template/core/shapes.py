@@ -1,3 +1,4 @@
+import enum
 import typing
 
 import dataclasses
@@ -19,7 +20,12 @@ def deserialise_from_boto(type_info: TypeInfo, payload: typing.Any) -> typing.An
         return payload
 
     elif type_info.is_enum:
-        return type_info.type[payload]
+        try:
+            return type_info.type(payload)
+        except ValueError:
+            # Return raw value for unexpected values because it looks
+            # like the lists aren't complete.
+            return payload
 
     elif type_info.is_sequence:
         new_value = []
@@ -71,7 +77,10 @@ def serialize_to_boto(type_info: TypeInfo, payload: typing.Any) -> typing.Any:
         return payload
 
     elif type_info.is_enum:
-        return payload.value
+        if isinstance(payload, enum.Enum):
+            return payload.value
+        else:
+            return payload
 
     elif type_info.is_sequence:
         new_value = []
@@ -116,6 +125,9 @@ class ShapeBase:
     A shape in boto is effectively a type with rich metadata.
     """
 
+    def __post_init__(self):
+        self._page_iterator = None
+
     class _Falsey:
         def __init__(self, name):
             assert name
@@ -149,8 +161,13 @@ class ShapeBase:
         """
         return deserialise_from_boto(TypeInfo(cls), d)
 
-    boto_fields: typing.List[str] = _BotoFields()
-    autoboto_fields: typing.List[str] = _AutobotoFields()
+    def paginate(self) -> typing.Generator["ShapeBase", None, None]:
+        yield self
+        for page in self._page_iterator:
+            yield self.from_boto_dict(page)
+
+    boto_fields: typing.ClassVar[typing.List[str]] = _BotoFields()
+    autoboto_fields: typing.ClassVar[typing.List[str]] = _AutobotoFields()
 
 
 @dataclasses.dataclass

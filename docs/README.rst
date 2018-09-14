@@ -29,6 +29,15 @@ The Objective
         for obj in s3_client.list_objects_v2(bucket_name=bucket.name).contents:
             print(f"  - {obj.key}")
 
+You can also paginate:
+
+.. code-block:: python
+
+    for page in s3_client.list_objects_v2(bucket_name=bucket.name).paginate():
+        for obj in page.contents:
+            print(f"  - {obj.key}")
+
+
 ============
 Installation
 ============

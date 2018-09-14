@@ -3,10 +3,11 @@ This module contains classes that override botocore.model classes in order to in
 """
 import collections
 import datetime
-from typing import Iterator
+from typing import ClassVar, Dict, Iterator, Optional
 
 import botocore.loaders
 import botocore.model
+import botocore.paginate
 from cached_property import cached_property
 
 
@@ -137,13 +138,24 @@ class AbShapeResolver(botocore.model.ShapeResolver):
 
 
 class AbOperationModel(botocore.model.OperationModel):
+
+    def get_paginator(self) -> Optional[Dict]:
+        if self._service_model.paginator_model:
+            try:
+                return self._service_model.paginator_model.get_paginator(self.name)
+            except ValueError:
+                return None
+        return None
+
+
+class AbPaginatorModel(botocore.paginate.PaginatorModel):
     pass
 
 
 class AbServiceModel(botocore.model.ServiceModel):
-    loader = botocore.loaders.Loader()
-
-    autoboto_shape_map_additions = {
+    loader: ClassVar = botocore.loaders.Loader()
+    services_with_paginators: ClassVar = loader.list_available_services("paginators-1")
+    autoboto_shape_map_additions: ClassVar = {
         "ResponseMetadataKey": {
             "type": "string",
         },
@@ -161,11 +173,15 @@ class AbServiceModel(botocore.model.ServiceModel):
         },
     }
 
+    paginator_model: Optional[AbPaginatorModel] = None
+
     def __init__(self, service_name):
         super().__init__(
             self.loader.load_service_model(service_name, "service-2"),
             service_name,
         )
+        if service_name in self.services_with_paginators:
+            self.paginator_model = AbPaginatorModel(self.loader.load_service_model(service_name, "paginators-1"))
         self._shape_resolver = AbShapeResolver(
             shape_map=self._service_description.get('shapes', {}),
             operations_map=self._service_description.get('operations', {}),
