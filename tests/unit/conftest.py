@@ -10,7 +10,7 @@ from botogen import Botogen
 # These only make sense in local development environment.
 # When autoboto is installed as a package, you shouldn't be running the tests.
 
-_project_root_dir: Path = Path(__file__).parents[1]
+_project_root_dir: Path = Path(__file__).parents[2]
 _project_build_dir: Path = _project_root_dir / "build"
 
 # The directory under which all test builds live

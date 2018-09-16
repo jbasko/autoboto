@@ -2,21 +2,14 @@
 autoboto
 ########
 
-======
-Status
-======
+* **PyCharm-ready auto-complete and docstrings for boto3 low-level client interface**.
 
-**Alpha**
+* Project Status: **Alpha**
 
-=============
-The Objective
-=============
+* Custom methods that boto3 does not generate from botocore are simply delegated to the boto3 client
+  and have no documentation available. And the parameter naming schema is like in the original methods.
 
-    I want to be able to write boto3 code with my favourite IDE (PyCharm) telling me that the ``s3`` service
-    has methods called ``list_buckets`` and ``list_objects_v2`` and they take certain arguments
-    and return objects of this or that type which has these attributes of these types.
-
-**autoboto** allows me to do that:
+* Passing nested objects is ugly.
 
 .. code-block:: python
 

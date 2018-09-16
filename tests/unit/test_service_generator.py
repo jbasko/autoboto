@@ -14,4 +14,4 @@ def test_shapes_lookup(botogen):
     assert s3.type_annotation_for_shape("CORSRule") == "\"CORSRule\""
 
     assert s3.shapes["MFADelete"].is_enum
-    assert s3.type_annotation_for_shape("MFADelete") == "\"MFADelete\""
+    assert s3.type_annotation_for_shape("MFADelete") == "typing.Union[str, \"MFADelete\"]"

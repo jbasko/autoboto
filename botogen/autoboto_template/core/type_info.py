@@ -1,6 +1,5 @@
 import collections.abc
 import datetime
-import enum
 import sys
 import typing
 
@@ -79,7 +78,7 @@ class TypeInfo:
 
     @property
     def is_enum(self):
-        return isinstance(self.type, type) and issubclass(self.type, enum.Enum)
+        return isinstance(self.type, type) and issubclass(self.type, str) and self.type != str
 
     @property
     def is_any(self):

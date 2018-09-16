@@ -3,3 +3,4 @@ dist
 *.egg-info
 autoboto/services
 autoboto/versions.py
+.hypothesis

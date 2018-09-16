@@ -9,6 +9,7 @@ yapf
 
 bumpversion
 flake8
+hypothesis
 isort
 pygments
 pytest

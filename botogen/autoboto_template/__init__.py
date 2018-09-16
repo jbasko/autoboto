@@ -2,7 +2,7 @@ __version__ = "0.3.0"
 
 from typing import Tuple
 
-from .core import ClientBase, OutputShapeBase, ShapeBase, TypeInfo, deserialise_from_boto, issubtype, serialize_to_boto
+from .core import ClientBase, OutputShapeBase, ShapeBase, TypeInfo, from_boto, issubtype, to_boto
 
 botocore_version: Tuple[int, int, int] = None
 try:
@@ -15,8 +15,8 @@ __all__ = [
     "OutputShapeBase",
     "ShapeBase",
     "TypeInfo",
-    "deserialise_from_boto",
+    "from_boto",
     "issubtype",
-    "serialize_to_boto",
+    "to_boto",
     "botocore_version",
 ]

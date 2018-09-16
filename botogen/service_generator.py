@@ -84,10 +84,9 @@ class ServiceGenerator(CodeGenerator):
         for shape in self.shapes.values():
 
             if shape.is_enum:
-                module.add_to_imports("from enum import Enum")
                 enum_cls = module.class_(
                     name=shape.name,
-                    bases=["Enum"],
+                    bases=["str"],
                     doc=shape.documentation,
                 )
 
@@ -143,13 +142,9 @@ class ServiceGenerator(CodeGenerator):
                 )
 
                 for member in shape.sorted_members:
-                    field_defaults = {}
-                    if member.shape.type_name == "list":
-                        field_defaults["default_factory"] = "list"
-                    elif member.shape.type_name == "structure":
-                        field_defaults["default_factory"] = "dict"
-                    else:
-                        field_defaults["default"] = "ShapeBase.NOT_SET"
+                    field_defaults = {
+                        "default": "ShapeBase.NOT_SET",
+                    }
                     cls.field(
                         name=self.make_shape_attribute_name(member.name),
                         type_=self.type_annotation_for_shape(member.shape.name),
@@ -251,16 +246,16 @@ class ServiceGenerator(CodeGenerator):
                 )
                 if operation.output_shape and paginator_model:
                     operation_func.add(f"""\
-                        paginator = self.get_paginator("{operation_method_name}").paginate(**_request.to_boto_dict())
+                        paginator = self.get_paginator("{operation_method_name}").paginate(**_request.to_boto())
                         page_generator = (page for page in paginator)
                         first_page = next(page_generator)
-                        result = shapes.{operation.output_shape.name}.from_boto_dict(first_page)
+                        result = shapes.{operation.output_shape.name}.from_boto(first_page)
                         result._page_iterator = page_generator
                         return result
                     """, indentation=1)
                 else:
                     operation_func.add(f"""\
-                        response = self._boto_client.{operation_method_name}(**_request.to_boto_dict())
+                        response = self._boto_client.{operation_method_name}(**_request.to_boto())
                     """, indentation=1)
             else:
                 operation_func.add(f"""\
@@ -269,7 +264,7 @@ class ServiceGenerator(CodeGenerator):
 
             if operation.output_shape:
                 operation_func.add(f"""\
-                    return shapes.{operation.output_shape.name}.from_boto_dict(response)
+                    return shapes.{operation.output_shape.name}.from_boto(response)
                 """, indentation=1)
 
         return module
@@ -285,7 +280,7 @@ class ServiceGenerator(CodeGenerator):
         shape = self.shapes[shape_name]
         q = "\"" if quoted else ""
         if shape.is_enum:
-            return f"{q}{ns}{shape.name}{q}"
+            return f"typing.Union[str, {q}{ns}{shape.name}{q}]"
         elif shape.type_name in AbShape.PRIMITIVE_TYPES:
             type_ = AbShape.PRIMITIVE_TYPES[shape.type_name]
             if type_ is datetime.datetime:
