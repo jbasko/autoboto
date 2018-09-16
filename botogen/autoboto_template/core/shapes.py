@@ -155,11 +155,6 @@ class ShapeBase:
         """
         return from_boto(TypeInfo(cls), d)
 
-    def paginate(self) -> typing.Generator["ShapeBase", None, None]:
-        yield self
-        for page in self._page_iterator:
-            yield self.from_boto(page)
-
     boto_fields: typing.ClassVar[typing.List[str]] = _BotoFields()
     autoboto_fields: typing.ClassVar[typing.List[str]] = _AutobotoFields()
 
@@ -171,3 +166,8 @@ class OutputShapeBase(ShapeBase):
     """
 
     response_metadata: typing.Dict = dataclasses.field(default_factory=dict)
+
+    def _paginate(self) -> typing.Generator["OutputShapeBase", None, None]:
+        yield self
+        for page in self._page_iterator:
+            yield self.from_boto(page)

@@ -38,6 +38,7 @@ class ServiceGenerator(CodeGenerator):
         self.service_model = AbServiceModel(service_name)
         self.shapes: Dict[str, AbShape] = collections.OrderedDict()
         self.operations: Dict[str, AbOperationModel] = collections.OrderedDict()
+        self.paginated_output_shapes = set()
 
         self.load_service_definition()
 
@@ -152,13 +153,14 @@ class ServiceGenerator(CodeGenerator):
                         **field_defaults,
                     )
 
-                cls.func(
-                    name="paginate",
-                    params=["self"],
-                    return_type=f"typing.Generator[\"{shape.name}\", None, None]",
-                ).of(
-                    "yield from super().paginate()"
-                )
+                if shape.name in self.paginated_output_shapes:
+                    cls.func(
+                        name="paginate",
+                        params=["self"],
+                        return_type=f"typing.Generator[\"{shape.name}\", None, None]",
+                    ).of(
+                        "yield from super()._paginate()"
+                    )
 
             elif shape.type_name == "blob":
                 module.add_to_imports("import botocore.response")
@@ -275,6 +277,9 @@ class ServiceGenerator(CodeGenerator):
             self.shapes[name] = shape
         for name in self.service_model.operation_names:
             self.operations[name] = self.service_model.operation_model(name)
+            if self.operations[name].get_paginator():
+                # Mark paginated shapes for which we need to generate the paginate() method.
+                self.paginated_output_shapes.add(self.operations[name].output_shape.name)
 
     def type_annotation_for_shape(self, shape_name, quoted=True, ns="") -> str:
         shape = self.shapes[shape_name]

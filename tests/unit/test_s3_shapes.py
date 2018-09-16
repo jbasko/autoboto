@@ -175,3 +175,8 @@ def test_create_bucket_request(s3_shapes, bucket_name, location_constraint):
             "LocationConstraint": location_constraint,
         },
     }
+
+
+def test_paginate_method_added_to_output_shapes_that_support_it(s3_shapes):
+    assert hasattr(s3_shapes.ListObjectsV2Output, "paginate")
+    assert not hasattr(s3_shapes.ListBucketsOutput, "paginate")
