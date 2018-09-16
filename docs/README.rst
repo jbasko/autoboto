@@ -2,35 +2,6 @@
 autoboto
 ########
 
-* **PyCharm-ready auto-complete and docstrings for boto3 low-level client interface**.
-
-* Project Status: **Alpha**
-
-* Custom methods that boto3 does not generate from botocore are simply delegated to the boto3 client
-  and have no documentation available. And the parameter naming schema is like in the original methods.
-
-* Passing nested objects is ugly.
-
-.. code-block:: python
-
-    from autoboto.services import s3
-
-    s3_client = s3.Client()
-
-    for bucket in s3_client.list_buckets().buckets:
-        print(f"= {bucket.name} =")
-        for obj in s3_client.list_objects_v2(bucket_name=bucket.name).contents:
-            print(f"  - {obj.key}")
-
-You can also paginate:
-
-.. code-block:: python
-
-    for page in s3_client.list_objects_v2(bucket_name=bucket.name).paginate():
-        for obj in page.contents:
-            print(f"  - {obj.key}")
-
-
 ============
 Installation
 ============
@@ -39,10 +10,55 @@ Installation
 
     pip install autoboto
 
+============
+Introduction
+============
+
+* Project Status: **Alpha**. You should use this only for ad-hoc queries when exploring
+  the AWS. It's for people who roughly know what they want from AWS, but don't want to
+  scroll up and down the long (and good) boto3 documentation pages to find out the
+  right method and parameter names. We are in the 21st century and for user-facing code,
+  the auto-complete should work.
+
+* All response objects are dataclasses.
+
+* All response objects have a ``response_metadata`` which is an unmodified dictionary
+  normally returned under the ``ResponseMetadata`` key of the response dictionary.
+
+* Passing nested objects isn't as easy as passing nested dictionaries, but it has benefits.
+
+* The method names are as in boto3, but parameter names have been changed from ``CamelCase``
+  to ``snake_case``.
+
+* Custom methods that boto3 does not generate from botocore (for example, ``s3.upload_file``
+  are simply delegated to the boto3 client and have no documentation available (for now).
+  The parameter names are as in the original methods.
+
+.. code-block:: python
+
+    from autoboto.services import s3
+
+    s3_client = s3.Client()
+
+    for bucket in s3_client.list_buckets().buckets:
+        print(bucket.name)
+        for obj in s3_client.list_objects_v2(bucket_name=bucket.name).contents:
+            print(f" - {obj.key}")
+
+You can also paginate:
+
+.. code-block:: python
+
+    for page in s3_client.list_objects_v2(bucket_name=bucket.name).paginate():
+        for obj in page.contents:
+            print(f" - {obj.key}")
+
 
 ===============
 Code Generation
 ===============
+
+**You don't need to read this section**. It's about how to generate the autoboto code.
 
 When you install ``autoboto`` from pypi.org, the package already contains the generated code for all the services
 that boto3 supports.
@@ -116,8 +132,9 @@ Directory Structure
 Notes
 -----
 
-Do not use any imports from ``botogen.autoboto_template`` in tests because the objects that exist there
-are not the same that the test code will access.
+Do not use any imports from ``botogen.autoboto_template`` in tests of the generated code
+because the generated code does not import from there. Instead, use the dedicated fixtures
+(for which, ironically, the auto-complete won't work).
 
 -------
 ``tox``

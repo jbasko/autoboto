@@ -13,5 +13,6 @@ hypothesis
 isort
 pygments
 pytest
+pytest-random-order
 twine
 wheel
