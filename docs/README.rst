@@ -65,6 +65,10 @@ that boto3 supports.
 
 If you want to re-generate the code, you can do so with the included ``botogen``.
 
+Code generation includes importing the generated modules and instantiating the generated client classes.
+For this to work you will need to have ``AWS_PROFILE`` environment variable pointing too an AWS profile which
+has ``region`` set.
+
 .. code-block:: shell
 
     python -m botogen --services s3,cloudformation,lambda
@@ -136,8 +140,18 @@ Do not use any imports from ``botogen.autoboto_template`` in tests of the genera
 because the generated code does not import from there. Instead, use the dedicated fixtures
 (for which, ironically, the auto-complete won't work).
 
--------
-``tox``
--------
+-----
+Tests
+-----
 
-To run ``tox``, you need to first generate the autoboto package or it will fail.
+``tests`` directory contains both unit tests and integration tests. For unit tests you don't need an AWS account.
+
+.. code-block:: shell
+
+    pytest tests/unit
+
+To run tests across multiple Python versions, use tox. To run ``tox``, you need to first generate
+the autoboto package or it will fail.
+
+If you're using ``pyenv`` and virtualenvs, don't run ``tox`` from within a virtualenv.
+

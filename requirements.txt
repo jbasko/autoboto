@@ -3,6 +3,7 @@ botocore
 cached_property
 dataclasses
 html2text
+typing_inspect
 wr_profiles>=4.0.0, <5.0
 yapf
 

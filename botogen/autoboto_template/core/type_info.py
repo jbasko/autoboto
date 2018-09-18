@@ -4,6 +4,7 @@ import sys
 import typing
 
 import dataclasses
+import typing_inspect
 
 
 def issubtype(sub_type, parent_type):
@@ -51,7 +52,14 @@ class TypeInfo:
 
     @property
     def is_primitive(self):
-        return self.type in (int, bool, float, str, datetime.datetime)
+        if self.type in (int, bool, float, str, datetime.datetime):
+            return True
+
+        if typing_inspect.get_origin(self.type) is typing.Union:
+            if all(issubclass(a, str) for a in typing_inspect.get_args(self.type)):
+                return True
+
+        return False
 
     @property
     def is_sequence(self):

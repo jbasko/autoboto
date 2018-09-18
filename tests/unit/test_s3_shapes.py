@@ -27,7 +27,7 @@ def test_s3_list_objects_v2_request_shape(s3_shapes):
     )
     assert request._get_boto_mapping()[0] == ("bucket", "Bucket", s3_shapes.TypeInfo(str))
     assert request._get_boto_mapping()[2] == (
-        "encoding_type", "EncodingType", s3_shapes.TypeInfo(str)
+        "encoding_type", "EncodingType", s3_shapes.TypeInfo(typing.Union[str, s3_shapes.EncodingType])
     )
     assert request.to_boto() == {
         "Bucket": "test-bucket",
