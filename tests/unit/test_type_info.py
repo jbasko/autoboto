@@ -1,13 +1,6 @@
-from typing import Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
-from botogen.autoboto_template import TypeInfo, issubtype
-
-
-def test_issubtype():
-    assert issubtype(List[str], List[str])
-    assert issubtype(List[str], List)
-    assert issubtype(List[int], List[int])
-    assert not issubtype(List[int], List[str])
+from botogen.autoboto_template import TypeInfo
 
 
 def test_generic_types_are_recognised():
@@ -23,3 +16,10 @@ def test_union_of_str_and_extended_str_is_still_a_primitive():
 
     assert TypeInfo(Union[str, S]).is_primitive
     assert TypeInfo(Union[S, str]).is_primitive
+
+
+def test_is_dict():
+    assert TypeInfo(dict).is_dict
+    assert TypeInfo(Dict).is_dict
+    assert TypeInfo(Dict[str, str]).is_dict
+    assert TypeInfo(Dict[str, Any]).is_dict

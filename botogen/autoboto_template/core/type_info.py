@@ -7,48 +7,9 @@ import dataclasses
 import typing_inspect
 
 
-def issubtype(sub_type, parent_type):
-
-    # My question on Stackoverflow:
-    # https://stackoverflow.com/q/52239007/38611
-
-    if sys.version_info >= (3, 7):
-        if not hasattr(sub_type, "__origin__") or not hasattr(parent_type, "__origin__"):
-            return False
-
-        if sub_type.__origin__ != parent_type.__origin__:
-            return False
-
-        if not parent_type.__args__:
-            return True
-
-        if isinstance(parent_type.__args__[0], type):
-            return sub_type.__args__ == parent_type.__args__
-
-        return True
-
-    else:
-        if not hasattr(sub_type, "__extra__") or not hasattr(parent_type, "__extra__"):
-            return False
-
-        if sub_type.__extra__ != parent_type.__extra__:
-            return False
-
-        if not parent_type.__args__ or parent_type.__args__ == sub_type.__args__:
-            return True
-
-    return False
-
-
 @dataclasses.dataclass
 class TypeInfo:
     type: typing.Any
-
-    def __post_init__(self):
-
-        # This is to handle NewType()
-        if hasattr(self.type, "__supertype__"):
-            self.type = self.type.__supertype__
 
     @property
     def is_primitive(self):
@@ -68,16 +29,17 @@ class TypeInfo:
             issubclass(self.type, collections.abc.Sequence) and
             not issubclass(self.type, str)
         ) or (
-            issubtype(self.type, typing.List) or
-            issubtype(self.type, typing.Tuple)
+            typing_inspect.is_generic_type(self.type) and typing_inspect.get_origin(self.type) in (list, typing.List)
+        ) or (
+            typing_inspect.is_tuple_type(self.type) and typing_inspect.get_origin(self.type) in (tuple, typing.Tuple)
         )
 
     @property
     def is_dict(self):
         return (
-            isinstance(self.type, type) and issubclass(self.type, dict)
+            isinstance(self.type, type) and issubclass(self.type, collections.abc.Mapping)
         ) or (
-            issubtype(self.type, typing.Dict)
+            typing_inspect.is_generic_type(self.type) and typing_inspect.get_origin(self.type) in (dict, typing.Dict)
         )
 
     @property

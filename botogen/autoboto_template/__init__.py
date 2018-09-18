@@ -2,7 +2,7 @@ __version__ = "0.4.3"
 
 from typing import Tuple
 
-from .core import ClientBase, OutputShapeBase, ShapeBase, TypeInfo, from_boto, issubtype, to_boto
+from .core import ClientBase, OutputShapeBase, ShapeBase, TypeInfo, from_boto, to_boto
 
 botocore_version: Tuple[int, int, int] = None
 try:
@@ -16,7 +16,6 @@ __all__ = [
     "ShapeBase",
     "TypeInfo",
     "from_boto",
-    "issubtype",
     "to_boto",
     "botocore_version",
 ]
